@@ -236,7 +236,7 @@ class _TorrentTask implements TorrentTask, AnnounceOptionsProvider {
   }
 
   void _processNewPeerFound(CompactAddress url, PeerSource source) {
-    log("Add new peer ${url.toString()} from ${source.name} to peersManager",
+    log("Processing new peer ${url.toString()} from $source",
         name: runtimeType.toString());
     _peersManager?.addNewPeerAddress(url, source);
   }

@@ -223,7 +223,8 @@ class PeersManager with Holepunch, PEX {
   }
 
   void _processExtendedMessage(dynamic source, String name, dynamic data) {
-    log('Processing Extended Message $name', name: runtimeType.toString());
+    log('Processing Extended Message $name from $source',
+        name: runtimeType.toString());
     if (name == 'ut_holepunch') {
       parseHolepuchMessage(data);
     }
@@ -262,6 +263,8 @@ class PeersManager with Holepunch, PEX {
       }
     }
     if (_peersAddress.add(address)) {
+      log("Adding new peer ${address.toString()} from $source to peersManager",
+          name: runtimeType.toString());
       Peer? peer;
       if (type == PeerType.TCP) {
         peer = Peer.newTCPPeer(_localPeerId, address, _metaInfo.infoHashBuffer,

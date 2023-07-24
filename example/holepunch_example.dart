@@ -72,7 +72,7 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
   }
 
   void _processNewPeerFound(CompactAddress url, PeerSource source) {
-    log("Add new dht peer ${url.toString()} to peersManager",
+    log("Processing new peer ${url.toString()} from $source",
         name: runtimeType.toString());
     addNewPeerAddress(url, source);
   }
@@ -111,6 +111,8 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
       }
     }
     if (_peersAddress.add(address)) {
+      log("Adding new peer ${address.toString()} from $source to peersManager",
+          name: runtimeType.toString());
       Peer? peer;
       if (type == PeerType.TCP) {
         peer = Peer.newTCPPeer(localPeerId, address, metaInfo.infoHashBuffer,
@@ -172,7 +174,8 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
   }
 
   void _processExtendedMessage(dynamic source, String name, dynamic data) {
-    log('Processing Extended Message $name', name: runtimeType.toString());
+    log('Processing Extended Message $name from $source',
+        name: runtimeType.toString());
     if (name == 'ut_holepunch') {
       parseHolepuchMessage(data);
     }
