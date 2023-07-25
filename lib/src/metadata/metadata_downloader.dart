@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:bencode_dart/bencode_dart.dart';
+import 'package:dart_ipify/dart_ipify.dart';
 import 'package:dartorrent_common/dartorrent_common.dart';
 import 'package:dht_dart/dht_dart.dart';
 import 'package:torrent_tracker/torrent_tracker.dart';
@@ -24,7 +25,7 @@ class MetadataDownloader
     InternetAddress.tryParse('127.0.0.1')!
   ];
 
-  InternetAddress? localExtenelIP;
+  InternetAddress? localExternalIP;
 
   int? _metaDataSize;
 
@@ -67,6 +68,10 @@ class MetadataDownloader
     _infoHashBuffer = hexString2Buffer(_infoHashString)!;
     assert(_infoHashBuffer.isNotEmpty && _infoHashBuffer.length == 20,
         'Info Hash String is incorrect');
+    _init();
+  }
+  Future<void> _init() async {
+    localExternalIP = InternetAddress.tryParse(await Ipify.ipv4());
   }
 
   void startDownload() {
@@ -121,7 +126,7 @@ class MetadataDownloader
   void addNewPeerAddress(CompactAddress address, PeerSource source,
       [PeerType type = PeerType.TCP, dynamic socket]) {
     if (!_running) return;
-    if (address.address == localExtenelIP) return;
+    if (address.address == localExternalIP) return;
     if (socket != null) {
       //  Indicates that it is an actively connecting peer, and currently, only
       //  one connection per IP address is allowed.
@@ -144,7 +149,7 @@ class MetadataDownloader
   }
 
   void _hookPeer(Peer peer) {
-    if (peer.address.address == localExtenelIP) return;
+    if (peer.address.address == localExternalIP) return;
     if (_peerExsist(peer)) return;
     peer.onDispose(_processPeerDispose);
     peer.onHandShake(_processPeerHandshake);
@@ -216,7 +221,7 @@ class MetadataDownloader
         }
       }
 
-      if (localExtenelIP != null &&
+      if (localExternalIP != null &&
           data['yourip'] != null &&
           (data['yourip'].length == 4 || data['yourip'].length == 16)) {
         InternetAddress myip;
@@ -226,7 +231,7 @@ class MetadataDownloader
           return;
         }
         if (IGNORE_IPS.contains(myip)) return;
-        localExtenelIP = InternetAddress.fromRawAddress(data['yourip']);
+        localExternalIP = InternetAddress.fromRawAddress(data['yourip']);
       }
 
       var metaDataEventId = peer.getExtendedEventId('ut_metadata');

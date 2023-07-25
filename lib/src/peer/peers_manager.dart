@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:dart_ipify/dart_ipify.dart';
 import 'package:torrent_model/torrent_model.dart';
 import 'package:dartorrent_common/dartorrent_common.dart';
 
@@ -40,7 +41,7 @@ class PeersManager with Holepunch, PEX {
 
   final Set<InternetAddress> _incomingAddress = {};
 
-  InternetAddress? localExtenelIP;
+  InternetAddress? localExternalIP;
 
   /// The maximum size of the disk write cache.
   int maxWriteBufferSize;
@@ -88,9 +89,13 @@ class PeersManager with Holepunch, PEX {
     _fileManager.onSubPieceWriteComplete(_processSubPieceWriteComplte);
     _fileManager.onSubPieceReadComplete(readSubPieceComplete);
     _pieceManager.onPieceComplete(_processPieceWriteComplete);
-
+    _init();
     // Start pex interval
     startPEX();
+  }
+
+  Future<void> _init() async {
+    localExternalIP = InternetAddress.tryParse(await Ipify.ipv4());
   }
 
   /// Task is paused
@@ -170,7 +175,7 @@ class PeersManager with Holepunch, PEX {
   }
 
   void _hookPeer(Peer peer) {
-    if (peer.address.address == localExtenelIP) return;
+    if (peer.address.address == localExternalIP) return;
     if (_peerExsist(peer)) return;
     peer.onDispose(_processPeerDispose);
     peer.onBitfield(_processBitfieldUpdate);
@@ -232,7 +237,7 @@ class PeersManager with Holepunch, PEX {
       parsePEXDatas(source, data);
     }
     if (name == 'handshake') {
-      if (localExtenelIP != null &&
+      if (localExternalIP != null &&
           data['yourip'] != null &&
           (data['yourip'].length == 4 || data['yourip'].length == 16)) {
         InternetAddress myip;
@@ -242,7 +247,7 @@ class PeersManager with Holepunch, PEX {
           return;
         }
         if (IGNORE_IPS.contains(myip)) return;
-        localExtenelIP = InternetAddress.fromRawAddress(data['yourip']);
+        localExternalIP = InternetAddress.fromRawAddress(data['yourip']);
       }
     }
   }
@@ -255,7 +260,7 @@ class PeersManager with Holepunch, PEX {
   void addNewPeerAddress(CompactAddress? address, PeerSource source,
       [PeerType type = PeerType.TCP, dynamic socket]) {
     if (address == null) return;
-    if (address.address == localExtenelIP) return;
+    if (address.address == localExternalIP) return;
     if (socket != null) {
       // Indicates that it is an actively connected peer, and currently, only one IP address is allowed to connect at a time.
       if (!_incomingAddress.add(address.address)) {
