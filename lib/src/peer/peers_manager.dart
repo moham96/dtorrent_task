@@ -226,7 +226,7 @@ class PeersManager with Holepunch, PEX {
     log('Processing Extended Message $name from $source',
         name: runtimeType.toString());
     if (name == 'ut_holepunch') {
-      parseHolepuchMessage(data);
+      parseHolepuchMessage(data, source);
     }
     if (name == 'ut_pex') {
       parsePEXDatas(source, data);
@@ -729,9 +729,9 @@ class PeersManager with Holepunch, PEX {
   Iterable<Peer> get activePeers => _activePeers;
 
   @override
-  void holePunchConnect(CompactAddress ip) {
-    log("holePunch connect $ip");
-    addNewPeerAddress(ip, PeerSource.holepunch, PeerType.UTP);
+  void holePunchConnect(CompactAddress targetIp) {
+    log("holePunch connect $targetIp");
+    addNewPeerAddress(targetIp, PeerSource.holepunch, PeerType.UTP);
   }
 
   int get utpPeerCount {
@@ -762,13 +762,13 @@ class PeersManager with Holepunch, PEX {
   }
 
   @override
-  void holePunchError(String err, CompactAddress ip) {
+  void holePunchError(String err, CompactAddress targetIp) {
     log('holepunch error - $err');
   }
 
   @override
-  void holePunchRendezvous(CompactAddress ip) {
+  void holePunchRendezvous(CompactAddress targetIp, Peer initiatingPeer) {
     // TODO: implement holePunchRendezvous
-    log('Received holePunch Rendezvous from $ip');
+    log('Received holePunch Rendezvous from $targetIp');
   }
 }

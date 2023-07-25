@@ -198,7 +198,7 @@ class MetadataDownloader
       parseMetaDataMessage(peer, data);
     }
     if (name == 'ut_holepunch') {
-      parseHolepuchMessage(data);
+      parseHolepuchMessage(data, peer);
     }
     if (name == 'ut_pex') {
       parsePEXDatas(source, data);
@@ -332,15 +332,15 @@ class MetadataDownloader
   }
 
   @override
-  void holePunchConnect(CompactAddress ip) {
-    addNewPeerAddress(ip, PeerSource.holepunch, PeerType.UTP);
+  void holePunchConnect(CompactAddress targetIp) {
+    addNewPeerAddress(targetIp, PeerSource.holepunch, PeerType.UTP);
   }
 
   @override
-  void holePunchError(String err, CompactAddress ip) {}
+  void holePunchError(String err, CompactAddress targetIp) {}
 
   @override
-  void holePunchRendezvous(CompactAddress ip) {}
+  void holePunchRendezvous(CompactAddress targetIp, Peer initiatingPeer) {}
 
   @override
   Future<Map<String, dynamic>> getOptions(Uri uri, String infoHash) {

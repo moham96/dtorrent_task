@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartorrent_common/dartorrent_common.dart';
+import 'package:torrent_task/torrent_task.dart';
 
 enum HolepunchType { rendezvous, connect, error }
 
@@ -43,7 +44,7 @@ mixin Holepunch {
   /// port (2 bytes): <big-endian port number>
   ///
   /// err_code (4 bytes): <error code as a big-endian 4-byte integer; 0 in non-error messages>
-  void parseHolepuchMessage(List<int> data) {
+  void parseHolepuchMessage(List<int> data, Peer initiatingPeer) {
     log('Parsing holepunch message', name: runtimeType.toString());
     var type = data[0];
     var iptype = data[1];
@@ -85,7 +86,7 @@ mixin Holepunch {
     }
 
     if (type == 0x00) {
-      Timer.run(() => holePunchRendezvous(ip!));
+      Timer.run(() => holePunchRendezvous(ip!, initiatingPeer));
       return;
     }
 
@@ -95,11 +96,11 @@ mixin Holepunch {
     }
   }
 
-  void holePunchError(String err, CompactAddress ip);
+  void holePunchError(String err, CompactAddress targetIp);
 
-  void holePunchConnect(CompactAddress ip);
+  void holePunchConnect(CompactAddress targetIp);
 
-  void holePunchRendezvous(CompactAddress ip);
+  void holePunchRendezvous(CompactAddress targetIp, Peer initiatingPeer);
 
   void clearHolepunch() {
     // clean here
