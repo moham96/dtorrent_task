@@ -247,7 +247,7 @@ Future<void> main(List<String> args) async {
 
   var peerId = generatePeerId();
   var test = HolePunchTest(localPeerId: peerId, metaInfo: model);
-  test.start();
+  await test.start();
   test.startAnnounceUrl(
       Uri.parse('http://66.29.147.233:9000/announce'), model.infoHashBuffer);
   findPublicTrackers().listen((alist) {
