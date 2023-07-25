@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dart_ipify/dart_ipify.dart';
 import 'package:dartorrent_common/dartorrent_common.dart';
 import 'package:dartorrent_common/src/dartorrent_common_base.dart';
 import 'package:dht_dart/dht_dart.dart';
@@ -26,13 +27,14 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
   String localPeerId;
   Torrent metaInfo;
   ServerSocket? _serverSocket;
-  InternetAddress? localExtenelIP;
+  InternetAddress? localExternalIP;
   LSD? _lsd;
   DHT? _dht = DHT();
   TorrentAnnounceTracker? _tracker;
   HolePunchTest({required this.localPeerId, required this.metaInfo});
 
   Future<void> start() async {
+    localExternalIP ??= InternetAddress.tryParse(await Ipify.ipv4());
     _serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, 0);
     _lsd = LSD(metaInfo.infoHash, localPeerId);
     _tracker ??= TorrentAnnounceTracker(this);
@@ -103,7 +105,7 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
   void addNewPeerAddress(CompactAddress? address, PeerSource source,
       [PeerType type = PeerType.TCP, dynamic socket]) {
     if (address == null) return;
-    if (address.address == localExtenelIP) return;
+    if (address.address == localExternalIP) return;
     if (socket != null) {
       // Indicates that it is an actively connected peer, and currently, only one IP address is allowed to connect at a time.
       if (!_incomingAddress.add(address.address)) {
@@ -127,7 +129,7 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
   }
 
   void _hookPeer(Peer peer) {
-    if (peer.address.address == localExtenelIP) return;
+    if (peer.address.address == localExternalIP) return;
     peer.onDispose(
         (dynamic source, [dynamic reason]) => log('peer disposed $reason'));
     peer.onBitfield(
@@ -181,7 +183,7 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
     }
 
     if (name == 'handshake') {
-      if (localExtenelIP != null &&
+      if (localExternalIP != null &&
           data['yourip'] != null &&
           (data['yourip'].length == 4 || data['yourip'].length == 16)) {
         InternetAddress myip;
@@ -191,7 +193,7 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
           return;
         }
         if (IGNORE_IPS.contains(myip)) return;
-        localExtenelIP = InternetAddress.fromRawAddress(data['yourip']);
+        localExternalIP = InternetAddress.fromRawAddress(data['yourip']);
       }
     }
   }
