@@ -98,7 +98,7 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
     }
     log('incoming connect: ${socket.remoteAddress.address}:${socket.remotePort}',
         name: runtimeType.toString());
-    addNewPeerAddress(CompactAddress(socket.address, socket.port),
+    addNewPeerAddress(CompactAddress(socket.remoteAddress, socket.remotePort),
         PeerSource.incoming, PeerType.TCP, socket);
   }
 
