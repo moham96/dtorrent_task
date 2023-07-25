@@ -130,35 +130,36 @@ class HolePunchTest with Holepunch implements AnnounceOptionsProvider {
 
   void _hookPeer(Peer peer) {
     if (peer.address.address == localExternalIP) return;
-    peer.onDispose(
-        (dynamic source, [dynamic reason]) => log('peer disposed $reason'));
+    peer.onDispose((dynamic source, [dynamic reason]) =>
+        log('peer $peer disposed $reason'));
     peer.onBitfield(
-        (dynamic source, Bitfield bitfield) => log('peer bitfield'));
-    peer.onHaveAll((dynamic source) => log('peer haveall'));
-    peer.onHaveNone((dynamic source, [dynamic reason]) => log('peer havenone'));
+        (dynamic source, Bitfield bitfield) => log('peer $peer bitfield'));
+    peer.onHaveAll((dynamic source) => log('peer $peer haveall'));
+    peer.onHaveNone(
+        (dynamic source, [dynamic reason]) => log('peer $peer havenone'));
     peer.onHandShake((dynamic source, String peerid, dynamic data) =>
         log('peer handshake $peerid'));
     peer.onChokeChange(
-        (dynamic source, [dynamic reason]) => log('peer chokechanged'));
-    peer.onInterestedChange(
-        (dynamic source, [dynamic reason]) => log('peer interestchenged'));
+        (dynamic source, [dynamic reason]) => log('peer $peer chokechanged'));
+    peer.onInterestedChange((dynamic source, [dynamic reason]) =>
+        log('peer $peer interestchenged'));
     peer.onConnect(_peerConnected);
-    peer.onHave((dynamic source, [dynamic reason]) => log('peer onhave'));
+    peer.onHave((dynamic source, [dynamic reason]) => log('peer $peer onhave'));
     peer.onPiece((dynamic source, int index, int begin, List<int> block) =>
-        log('peer onpiece'));
+        log('peer $peer onpiece'));
     peer.onRequest((dynamic source, int index, int begin, int length) =>
-        log('peer request'));
-    peer.onRequestTimeout(
-        (dynamic source, [dynamic reason]) => log('peer requesttimerout'));
+        log('peer $peer request'));
+    peer.onRequestTimeout((dynamic source, [dynamic reason]) =>
+        log('peer $peer requesttimerout'));
     peer.onSuggestPiece(
-        (dynamic source, [dynamic reason]) => log('peer suggestpiece'));
+        (dynamic source, [dynamic reason]) => log('peer $peer suggestpiece'));
     peer.onRejectRequest((dynamic source, int index, int begin, int length) =>
-        log('peer rejectrequest'));
+        log('peer $peer rejectrequest'));
     peer.onAllowFast(
-        (dynamic source, [dynamic reason]) => log('peer allowfast'));
+        (dynamic source, [dynamic reason]) => log('peer $peer allowfast'));
     peer.onExtendedEvent(_processExtendedMessage);
     _registerExtended(peer);
-    log('connecting to peer');
+    log('connecting to peer $peer');
     peer.connect();
   }
 
