@@ -36,7 +36,7 @@ class LSD {
 
   Timer? _timer;
 
-  void start() async {
+  Future<void> start() async {
     _socket ??= await RawDatagramSocket.bind(InternetAddress.anyIPv4, LSD_PORT);
     _socket?.listen((event) {
       if (event == RawSocketEvent.read) {
