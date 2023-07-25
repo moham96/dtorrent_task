@@ -261,7 +261,7 @@ class _TorrentTask implements TorrentTask, AnnounceOptionsProvider {
     log('incoming connect: ${socket.remoteAddress.address}:${socket.remotePort}',
         name: runtimeType.toString());
     _peersManager?.addNewPeerAddress(
-        CompactAddress(socket.address, socket.port),
+        CompactAddress(socket.remoteAddress, socket.remotePort),
         PeerSource.incoming,
         PeerType.TCP,
         socket);
