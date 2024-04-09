@@ -21,13 +21,11 @@ Future<void> main() async {
   model.announces.clear();
   var task = TorrentTask.newTask(model, path.join(scriptDir, '..', 'tmp'));
   Timer? timer;
-  Timer? timer1;
   EventsListener<TaskEvent> listener = task.createListener();
   listener
     ..on<TaskCompleted>((event) {
       print('Complete!');
       timer?.cancel();
-      timer1?.cancel();
       task.stop();
     })
     ..on<TaskStopped>(((event) {

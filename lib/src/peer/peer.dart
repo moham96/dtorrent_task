@@ -15,9 +15,9 @@ import 'congestion_control.dart';
 import 'speed_calculator.dart';
 import 'extended_processor.dart';
 
-const KEEP_ALIVE_MESSAGE = [0, 0, 0, 0];
-const RESERVED = [0, 0, 0, 0, 0, 0, 0, 0];
-const HAND_SHAKE_HEAD = [
+const keepAliveMessage = [0, 0, 0, 0];
+const reservedConst = [0, 0, 0, 0, 0, 0, 0, 0];
+const handshakeHead = [
   19,
   66,
   105,
@@ -40,28 +40,29 @@ const HAND_SHAKE_HEAD = [
   108
 ];
 
-const ID_CHOKE = 0;
-const ID_UNCHOKE = 1;
-const ID_INTERESTED = 2;
-const ID_NOT_INTERESTED = 3;
-const ID_HAVE = 4;
-const ID_BITFIELD = 5;
-const ID_REQUEST = 6;
-const ID_PIECE = 7;
-const ID_CANCEL = 8;
-const ID_PORT = 9;
-const ID_EXTENDED = 20;
+const chokeID = 0;
+const unchokeID = 1;
+const interestedID = 2;
+const notInterestedID = 3;
+const haveID = 4;
+const bitfieldID = 5;
+const requestID = 6;
+const pieceID = 7;
+const canselID = 8;
+const portID = 9;
+const extendedID = 20;
 
-const OP_HAVE_ALL = 0x0e;
-const OP_HAVE_NONE = 0x0f;
-const OP_SUGGEST_PIECE = 0x0d;
-const OP_REJECT_REQUEST = 0x10;
-const OP_ALLOW_FAST = 0x11;
+const haveAllOP = 0x0e;
+const haveNoneOP = 0x0f;
+const suggestPieceOP = 0x0d;
+const rejectRequestOP = 0x10;
+const allowFastOP = 0x11;
 
+// ignore: constant_identifier_names
 enum PeerType { TCP, UTP }
 
 /// 30 Seconds
-const DEFAULT_CONNECT_TIMEOUT = 30;
+const defaultConnectTimeout = 30;
 
 enum PeerSource { tracker, dht, pex, lsd, incoming, manual, holepunch }
 
@@ -139,7 +140,7 @@ abstract class Peer
   final _remoteRequestBuffer = <List<int>>[];
 
   /// Max request count in one piple ,5
-  static const MAX_REQUEST_COUNT = 5;
+  static const maxRequestCount = 5;
 
   bool remoteEnableFastPeer = false;
 
@@ -273,7 +274,7 @@ abstract class Peer
   }
 
   /// Connect remote peer
-  Future connect([int timeout = DEFAULT_CONNECT_TIMEOUT]) async {
+  Future connect([int timeout = defaultConnectTimeout]) async {
     try {
       _init();
       var stream = await connectRemote(timeout);
@@ -392,11 +393,11 @@ abstract class Peer
           List.copyRange(
               messageBuffer, 0, _cacheBuffer, start + 5, start + 4 + length);
           switch (id) {
-            case ID_PIECE:
+            case pieceID:
               piecesMessage ??= <Uint8List>[];
               piecesMessage.add(messageBuffer);
               break;
-            case ID_HAVE:
+            case haveID:
               haveMessages ??= <Uint8List>[];
               haveMessages.add(messageBuffer);
               break;
@@ -422,7 +423,7 @@ abstract class Peer
   bool _isHandShakeHead(buffer) {
     if (buffer.length < 68) return false;
     for (var i = 0; i < 20; i++) {
-      if (buffer[i] != HAND_SHAKE_HEAD[i]) return false;
+      if (buffer[i] != handshakeHead[i]) return false;
     }
     return true;
   }
@@ -441,19 +442,19 @@ abstract class Peer
       return;
     } else {
       switch (id) {
-        case ID_CHOKE:
+        case chokeID:
           _log('remote choke me : $address');
           chokeMe = true; // choke message
           return;
-        case ID_UNCHOKE:
+        case unchokeID:
           _log('remote unchoke me : $address');
           chokeMe = false; // unchoke message
           return;
-        case ID_INTERESTED:
+        case interestedID:
           _log('remote interested me : $address');
           interestedMe = true;
           return; // interested message
-        case ID_NOT_INTERESTED:
+        case notInterestedID:
           _log('remote not interested me : $address');
           interestedMe = false;
           return; // not interested message
@@ -462,11 +463,11 @@ abstract class Peer
         //   var index = ByteData.view(message.buffer).getUint32(0);
         //   _processHave(index);
         //   return; // have message
-        case ID_BITFIELD:
+        case bitfieldID:
           // log('process bitfield from $address');
           if (message != null) initRemoteBitfield(message);
           return; // bitfield message
-        case ID_REQUEST:
+        case requestID:
           _log('process request from $address');
           if (message != null) _processRemoteRequest(message);
           return; // request message
@@ -474,38 +475,38 @@ abstract class Peer
         //   _log('process pieces : $address');
         //   _processReceivePiece(message);
         //   return; // pieces message
-        case ID_CANCEL:
+        case canselID:
           _log('process cancel : $address');
           if (message != null) _processCancel(message);
           return; // cancel message
-        case ID_PORT:
+        case portID:
           _log('process port : $address');
           if (message != null) {
             var port = ByteData.view(message.buffer).getUint16(0);
             _processPortChange(port);
           }
           return; // port message
-        case OP_HAVE_ALL:
+        case haveAllOP:
           _log('process have all : $address');
           _processHaveAll();
           return;
-        case OP_HAVE_NONE:
+        case haveNoneOP:
           _log('process have none : $address');
           _processHaveNone();
           return;
-        case OP_SUGGEST_PIECE:
+        case suggestPieceOP:
           _log('process suggest pieces : $address');
           if (message != null) _processSuggestPiece(message);
           return;
-        case OP_REJECT_REQUEST:
+        case rejectRequestOP:
           _log('process reject request : $address');
           if (message != null) _processRejectRequest(message);
           return;
-        case OP_ALLOW_FAST:
+        case allowFastOP:
           _log('process allow fast : $address');
           if (message != null) _processAllowFast(message);
           return;
-        case ID_EXTENDED:
+        case extendedID:
           if (message != null) {
             var extensionId = message[0];
             message = message.sublist(1);
@@ -552,7 +553,7 @@ abstract class Peer
       var message = <int>[];
       message.add(id);
       message.addAll(data);
-      sendMessage(ID_EXTENDED, message);
+      sendMessage(extendedID, message);
     }
   }
 
@@ -673,11 +674,11 @@ abstract class Peer
     var index = view.getUint32(0);
     var begin = view.getUint32(4);
     var length = view.getUint32(8);
-    if (length > MAX_REQUEST_LENGTH) {
+    if (length > maxRequestLength) {
       dev.log('TOO LARGEt BLOCK',
           error: 'BLOCK $length', name: runtimeType.toString());
       dispose(BadException(
-          '$address : request block length larger than limit : $length > $MAX_REQUEST_LENGTH'));
+          '$address : request block length larger than limit : $length > $maxRequestLength'));
       return;
     }
     if (chokeRemote) {
@@ -763,7 +764,7 @@ abstract class Peer
   void _sendExtendedHandshake() async {
     if (localEnableExtended && remoteEnableExtended) {
       var m = await _createExtendedHandshakeMessage();
-      sendMessage(ID_EXTENDED, m);
+      sendMessage(extendedID, m);
     }
   }
 
@@ -785,7 +786,7 @@ abstract class Peer
     if (isDisposed) return;
     if (id == null) {
       // it's keep alive
-      sendByteMessage(KEEP_ALIVE_MESSAGE);
+      sendByteMessage(keepAliveMessage);
       _startToCountdown();
       return;
     }
@@ -821,8 +822,8 @@ abstract class Peer
   void sendHandShake() {
     if (_handShaked) return;
     var message = <int>[];
-    message.addAll(HAND_SHAKE_HEAD);
-    var reserved = List<int>.from(RESERVED);
+    message.addAll(handshakeHead);
+    var reserved = List<int>.from(reservedConst);
     if (localEnableFastPeer) {
       reserved[7] |= 0x04;
     }
@@ -895,7 +896,7 @@ abstract class Peer
     view.setUint32(4, begin, Endian.big);
     bytes.addAll(messageHead);
     bytes.addAll(block);
-    sendMessage(ID_PIECE, bytes);
+    sendMessage(pieceID, bytes);
     updateUpload(bytes.length);
     return true;
   }
@@ -915,8 +916,7 @@ abstract class Peer
   /// - [length]: integer specifying the requested length.
   /// - [timeout]: when send request to remote , after [timeout] of not getting response,
   /// it will fire [requestTimeout] event
-  bool sendRequest(int index, int begin,
-      [int length = DEFAULT_REQUEST_LENGTH]) {
+  bool sendRequest(int index, int begin, [int length = defaultRequestLength]) {
     if (_chokeMe) {
       if (!remoteEnableFastPeer || !_remoteAllowFastPieces.contains(index)) {
         return false;
@@ -937,7 +937,7 @@ abstract class Peer
     view.setUint32(0, index, Endian.big);
     view.setUint32(4, begin, Endian.big);
     view.setUint32(8, length, Endian.big);
-    sendMessage(ID_REQUEST, bytes);
+    sendMessage(requestID, bytes);
   }
 
   @override
@@ -986,10 +986,10 @@ abstract class Peer
       } else if (bitfield.haveAll()) {
         sendHaveAll();
       } else {
-        sendMessage(ID_BITFIELD, bitfield.buffer);
+        sendMessage(bitfieldID, bitfield.buffer);
       }
     } else if (bitfield.haveCompletePiece()) {
-      sendMessage(ID_BITFIELD, bitfield.buffer);
+      sendMessage(bitfieldID, bitfield.buffer);
     }
   }
 
@@ -1001,7 +1001,7 @@ abstract class Peer
     var bytes = Uint8List(4);
     _log('Sending have information to the peer: $bytes, $index');
     ByteData.view(bytes.buffer).setUint32(0, index, Endian.big);
-    sendMessage(ID_HAVE, bytes);
+    sendMessage(haveID, bytes);
   }
 
   /// - `choke: <len=0001><id=0>`
@@ -1013,8 +1013,8 @@ abstract class Peer
       return;
     }
     chokeRemote = choke;
-    var id = ID_CHOKE;
-    if (!choke) id = ID_UNCHOKE;
+    var id = chokeID;
+    if (!choke) id = unchokeID;
     sendMessage(id);
   }
 
@@ -1029,8 +1029,8 @@ abstract class Peer
       return;
     }
     interestedRemote = iamInterested;
-    var id = ID_INTERESTED;
-    if (!iamInterested) id = ID_NOT_INTERESTED;
+    var id = interestedID;
+    if (!iamInterested) id = notInterestedID;
     sendMessage(id);
   }
 
@@ -1044,7 +1044,7 @@ abstract class Peer
     view.setUint32(0, index, Endian.big);
     view.setUint32(4, begin, Endian.big);
     view.setUint32(8, length, Endian.big);
-    sendMessage(ID_CANCEL, bytes);
+    sendMessage(canselID, bytes);
   }
 
   /// `port: <len=0003><id=9><listen-port>`
@@ -1055,7 +1055,7 @@ abstract class Peer
   void sendPortChange(int port) {
     var bytes = Uint8List(2);
     ByteData.view(bytes.buffer).setUint16(0, port);
-    sendMessage(ID_PORT, bytes);
+    sendMessage(portID, bytes);
   }
 
   /// BEP 0006
@@ -1063,7 +1063,7 @@ abstract class Peer
   /// Have all message
   void sendHaveAll() {
     if (remoteEnableFastPeer && localEnableFastPeer) {
-      sendMessage(OP_HAVE_ALL);
+      sendMessage(haveAllOP);
     }
   }
 
@@ -1072,7 +1072,7 @@ abstract class Peer
   /// Have none message
   void sendHaveNone() {
     if (remoteEnableFastPeer && localEnableFastPeer) {
-      sendMessage(OP_HAVE_NONE);
+      sendMessage(haveNoneOP);
     }
   }
 
@@ -1094,7 +1094,7 @@ abstract class Peer
       var bytes = Uint8List(4);
       var view = ByteData.view(bytes.buffer);
       view.setUint32(0, index, Endian.big);
-      sendMessage(OP_SUGGEST_PIECE, bytes);
+      sendMessage(suggestPieceOP, bytes);
     }
   }
 
@@ -1111,7 +1111,7 @@ abstract class Peer
       view.setUint32(0, index, Endian.big);
       view.setUint32(4, begin, Endian.big);
       view.setUint32(8, length, Endian.big);
-      sendMessage(OP_REJECT_REQUEST, bytes);
+      sendMessage(rejectRequestOP, bytes);
     }
   }
 
@@ -1131,7 +1131,7 @@ abstract class Peer
         var bytes = Uint8List(4);
         var view = ByteData.view(bytes.buffer);
         view.setUint32(0, index, Endian.big);
-        sendMessage(OP_ALLOW_FAST, bytes);
+        sendMessage(allowFastOP, bytes);
       }
     }
   }
@@ -1204,6 +1204,7 @@ class BadException implements Exception {
 }
 
 class TCPConnectException implements Exception {
+  // ignore: unused_field
   final Exception _e;
   TCPConnectException(this._e);
 }
@@ -1240,14 +1241,14 @@ class _TCPPeer extends Peer {
   }
 
   @override
-  Future dispose([reason]) async {
+  Future<void> dispose([reason]) async {
     try {
       await _socket?.close();
       _socket = null;
     } catch (e) {
       // do nothing
     } finally {
-      return super.dispose(reason);
+      super.dispose(reason);
     }
   }
 }

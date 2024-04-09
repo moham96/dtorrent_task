@@ -18,7 +18,6 @@ Future<void> main(List<String> args) async {
   // model.announces.clear();
   var task = TorrentStream(model, savePath);
   Timer? timer;
-  Timer? timer1;
   var startTime = DateTime.now().millisecondsSinceEpoch;
   EventsListener<TaskEvent> listener = task.createListener();
   listener
@@ -26,7 +25,6 @@ Future<void> main(List<String> args) async {
       print(
           'Complete! spend time : ${((DateTime.now().millisecondsSinceEpoch - startTime) / 60000).toStringAsFixed(2)} minutes');
       timer?.cancel();
-      timer1?.cancel();
       task.stop();
     })
     ..on<TaskStopped>(((event) {

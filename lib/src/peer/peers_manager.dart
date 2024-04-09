@@ -21,17 +21,18 @@ import '../utils.dart';
 import '../peer/pex.dart';
 import '../peer/holepunch.dart';
 
-const MAX_ACTIVE_PEERS = 50;
+const maxActivePeers = 50;
 
+// ignore: constant_identifier_names
 const MAX_WRITE_BUFFER_SIZE = 10 * 1024 * 1024;
 
-const MAX_UPLOADED_NOTIFY_SIZE = 1024 * 1024 * 10; // 10 mb
+const maxUploadedNotifySize = 1024 * 1024 * 10; // 10 mb
 
 ///
 /// TODO:
 /// - The external Suggest Piece/Fast Allow requests are not handled.
 class PeersManager with Holepunch, PEX, EventsEmittable<PeersManagerEvent> {
-  final List<InternetAddress> IGNORE_IPS = [
+  final List<InternetAddress> ignoreIPs = [
     InternetAddress.tryParse('0.0.0.0')!,
     InternetAddress.tryParse('127.0.0.1')!
   ];
@@ -249,7 +250,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeersManagerEvent> {
         } catch (e) {
           return;
         }
-        if (IGNORE_IPS.contains(myIp)) return;
+        if (ignoreIPs.contains(myIp)) return;
         localExternalIP = InternetAddress.fromRawAddress(data['yourip']);
       }
     }
@@ -263,7 +264,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeersManagerEvent> {
   void addNewPeerAddress(CompactAddress? address, PeerSource source,
       {PeerType? type, dynamic socket}) {
     if (address == null) return;
-    if (IGNORE_IPS.contains(address.address)) return;
+    if (ignoreIPs.contains(address.address)) return;
     if (address.address == localExternalIP) return;
     if (socket != null) {
       // Indicates that it is an actively connected peer, and currently, only one IP address is allowed to connect at a time.
@@ -363,7 +364,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeersManagerEvent> {
       for (var i in dindex) {
         _remoteRequest.removeAt(i);
       }
-      if (_uploadedNotifySize >= MAX_UPLOADED_NOTIFY_SIZE) {
+      if (_uploadedNotifySize >= maxUploadedNotifySize) {
         _uploadedNotifySize = 0;
         _fileManager.updateUpload(_uploaded);
       }
@@ -383,7 +384,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeersManagerEvent> {
 
   void _processRejectRequest(PeerRejectEvent event) {
     var piece = _pieceProvider[event.index];
-    piece?.pushSubPieceLast(event.begin ~/ DEFAULT_REQUEST_LENGTH);
+    piece?.pushSubPieceLast(event.begin ~/ defaultRequestLength);
   }
 
   void _pushSubPiecesBack(List<List<int>> requests) {
@@ -393,7 +394,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeersManagerEvent> {
       var begin = element[1];
       // TODO This is dangerous here. Currently, we are dividing a piece into 16 KB chunks. What if it's not the case?
       var piece = _pieceManager[pieceIndex];
-      var subindex = begin ~/ DEFAULT_REQUEST_LENGTH;
+      var subindex = begin ~/ defaultRequestLength;
       piece?.pushSubPiece(subindex);
     }
   }
@@ -435,7 +436,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeersManagerEvent> {
     }
 
     if (reconnect) {
-      if (_activePeers.length < MAX_ACTIVE_PEERS && !isDisposed) {
+      if (_activePeers.length < maxActivePeers && !isDisposed) {
         addNewPeerAddress(
           disposeEvent.peer.address,
           disposeEvent.peer.source,
@@ -479,7 +480,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeersManagerEvent> {
 
     var subIndex = piece.popSubPiece();
     if (subIndex == null) return;
-    var size = DEFAULT_REQUEST_LENGTH; // Block size is calculated dynamically.
+    var size = defaultRequestLength; // Block size is calculated dynamically.
     var begin = subIndex * size;
     if ((begin + size) > piece.byteLength) {
       size = piece.byteLength - begin;
@@ -614,7 +615,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeersManagerEvent> {
         Timer.run(() => peer.requestCancel(element[0], element[1], element[2]));
         var index = element[0];
         var begin = element[1];
-        var subindex = begin ~/ DEFAULT_REQUEST_LENGTH;
+        var subindex = begin ~/ defaultRequestLength;
         var piece = _pieceManager[index];
         piece?.pushSubPiece(subindex);
       }

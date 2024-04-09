@@ -29,7 +29,7 @@ import 'package:utp_protocol/utp_protocol.dart';
 class TorrentStream
     with EventsEmittable<TaskEvent>
     implements TorrentTask, AnnounceOptionsProvider {
-  static InternetAddress LOCAL_ADDRESS =
+  static InternetAddress localAddress =
       InternetAddress.fromRawAddress(Uint8List.fromList([127, 0, 0, 1]));
 
   TorrentAnnounceTracker? _tracker;
@@ -185,6 +185,8 @@ class TorrentStream
     _peersManager?.addNewPeerAddress(url, source);
   }
 
+  // TODO(ivn): _processDHTPeer
+  // ignore: unused_element
   void _processDHTPeer(CompactAddress peer, String infoHash) {
     log("Got new peer from $peer DHT for infohash: ${Uint8List.fromList(infoHash.codeUnits).toHexString()}",
         name: runtimeType.toString());
@@ -193,12 +195,14 @@ class TorrentStream
     }
   }
 
+  // TODO(ivn): _hookUTP
+  // ignore: unused_element
   void _hookUTP(UTPSocket socket) {
-    if (socket.remoteAddress == LOCAL_ADDRESS) {
+    if (socket.remoteAddress == localAddress) {
       socket.close();
       return;
     }
-    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    if (_comingIp.length >= maxInPeers || !_comingIp.add(socket.address)) {
       socket.close();
       return;
     }
@@ -212,11 +216,11 @@ class TorrentStream
   }
 
   void _hookInPeer(Socket socket) {
-    if (socket.remoteAddress == LOCAL_ADDRESS) {
+    if (socket.remoteAddress == localAddress) {
       socket.close();
       return;
     }
-    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    if (_comingIp.length >= maxInPeers || !_comingIp.add(socket.address)) {
       socket.close();
       return;
     }

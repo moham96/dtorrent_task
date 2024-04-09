@@ -25,7 +25,7 @@ class MetadataDownloader
         MetaDataMessenger,
         EventsEmittable<MetaDataDownloadComplete>
     implements AnnounceOptionsProvider {
-  final List<InternetAddress> IGNORE_IPS = [
+  final List<InternetAddress> listIPtoIgnore = [
     InternetAddress.tryParse('0.0.0.0')!,
     InternetAddress.tryParse('127.0.0.1')!
   ];
@@ -246,7 +246,7 @@ class MetadataDownloader
         } catch (e) {
           return;
         }
-        if (IGNORE_IPS.contains(myIp)) return;
+        if (listIPtoIgnore.contains(myIp)) return;
         localExternalIP = InternetAddress.fromRawAddress(data['yourip']);
       }
 

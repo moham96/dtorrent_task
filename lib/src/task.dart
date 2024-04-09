@@ -22,8 +22,8 @@ import 'piece/piece_manager.dart';
 import 'peer/peers_manager.dart';
 import 'utils.dart';
 
-const MAX_PEERS = 50;
-const MAX_IN_PEERS = 10;
+const maxPeers = 50;
+const maxInPeers = 10;
 
 enum TaskState { running, paused, stopped }
 
@@ -105,7 +105,7 @@ abstract class TorrentTask with EventsEmittable<TaskEvent> {
 class _TorrentTask
     with EventsEmittable<TaskEvent>
     implements TorrentTask, AnnounceOptionsProvider {
-  static InternetAddress LOCAL_ADDRESS =
+  static InternetAddress localAddress =
       InternetAddress.fromRawAddress(Uint8List.fromList([127, 0, 0, 1]));
 
   TorrentAnnounceTracker? _tracker;
@@ -266,12 +266,14 @@ class _TorrentTask
     }
   }
 
+  // TODO(ivn): _hookUTP
+  // ignore: unused_element
   void _hookUTP(UTPSocket socket) {
-    if (socket.remoteAddress == LOCAL_ADDRESS) {
+    if (socket.remoteAddress == localAddress) {
       socket.close();
       return;
     }
-    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    if (_comingIp.length >= maxInPeers || !_comingIp.add(socket.address)) {
       socket.close();
       return;
     }
@@ -285,11 +287,11 @@ class _TorrentTask
   }
 
   void _hookInPeer(Socket socket) {
-    if (socket.remoteAddress == LOCAL_ADDRESS) {
+    if (socket.remoteAddress == localAddress) {
       socket.close();
       return;
     }
-    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    if (_comingIp.length >= maxInPeers || !_comingIp.add(socket.address)) {
       socket.close();
       return;
     }

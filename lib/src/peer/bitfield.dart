@@ -3,7 +3,7 @@ import 'dart:typed_data';
 /// The base number used for bitwise AND and OR operations.
 ///
 /// It is represented as: 10000000 (binary representation)
-const BASE_NUM = 128;
+const baseNum = 128;
 
 class Bitfield {
   final int piecesNum;
@@ -17,7 +17,7 @@ class Bitfield {
     var i = index ~/ 8; // This represents the position of the byte.
     var b = index
         .remainder(8); // This represents the position of the bit in the byte
-    var andNum = BASE_NUM >> b;
+    var andNum = baseNum >> b;
     return ((andNum & buffer[i]) !=
         0); // If it is equal to 0, it means that the bit at that position is 0, which is equivalent to false.
   }
@@ -30,7 +30,7 @@ class Bitfield {
     var i = index ~/ 8; // This represents the position of the byte.
     var b = index
         .remainder(8); // This represents the position of the bit in the byte
-    var orNum = BASE_NUM >> b;
+    var orNum = baseNum >> b;
     if (bit) {
       _completedIndex = completedPieces;
       _completedIndex?.add(index);

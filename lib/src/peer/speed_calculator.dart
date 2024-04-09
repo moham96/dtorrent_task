@@ -1,7 +1,7 @@
 import 'dart:math';
 
 /// 5 seconds
-const RECORD_TIME = 5000000;
+const recordTime = 5000000;
 
 /// Upload and download speed calculator.
 mixin SpeedCalculator {
@@ -15,7 +15,7 @@ mixin SpeedCalculator {
     int? s;
     for (var i = 0; i < _downloadedHistory.length;) {
       var dd = _downloadedHistory[i];
-      if ((now - dd[1]) > RECORD_TIME) {
+      if ((now - dd[1]) > recordTime) {
         _downloadedHistory.removeAt(i);
       } else {
         d += dd[0];

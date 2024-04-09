@@ -7,14 +7,15 @@ import 'package:events_emitter2/events_emitter2.dart';
 import '../utils.dart';
 
 /// 500 ms
-const CCONTROL_TARGET = 1000000;
+const controlTarget = 1000000;
 
-const MAX_WINDOW = 1048576;
+const maxWindow = 1048576;
 
-const RECORD_TIME = 5000000;
+const recordTime = 5000000;
 
 /// The maximum number of requests to be increased in each round is 3.
-const MAX_CWND_INCREASE_REQUESTS_PER_RTT = 3 * 16384;
+const maxCwndIncreaseRequestsPerRTT =
+    3 * 16384; // MAX_CWND_INCREASE_REQUESTS_PER_RTT
 
 /// LEDBAT Congestion Control
 ///
@@ -29,7 +30,7 @@ mixin CongestionControl on EventsEmittable<PeerEvent> {
 
   Timer? _timeout;
 
-  int _allowWindowSize = DEFAULT_REQUEST_LENGTH;
+  int _allowWindowSize = defaultRequestLength;
 
   final List<List<dynamic>> _downloadedHistory = <List<dynamic>>[];
 
@@ -80,7 +81,7 @@ mixin CongestionControl on EventsEmittable<PeerEvent> {
 
       times++;
       _rto *= 2;
-      _allowWindowSize = DEFAULT_REQUEST_LENGTH;
+      _allowWindowSize = defaultRequestLength;
       events.emit(RequestTimeoutEvent(timeoutR));
       startRequestDataTimeout(times);
     });
@@ -102,18 +103,17 @@ mixin CongestionControl on EventsEmittable<PeerEvent> {
     }
     if (downloaded == 0 || minRtt == null) return;
     var artt = minRtt;
-    var delayFactor = (CCONTROL_TARGET - artt) / CCONTROL_TARGET;
+    var delayFactor = (controlTarget - artt) / controlTarget;
     var windowFactor = downloaded / _allowWindowSize;
-    var scaledGain =
-        MAX_CWND_INCREASE_REQUESTS_PER_RTT * delayFactor * windowFactor;
+    var scaledGain = maxCwndIncreaseRequestsPerRTT * delayFactor * windowFactor;
 
     _allowWindowSize += scaledGain.toInt();
-    _allowWindowSize = max(DEFAULT_REQUEST_LENGTH, _allowWindowSize);
-    _allowWindowSize = min(MAX_WINDOW, _allowWindowSize);
+    _allowWindowSize = max(defaultRequestLength, _allowWindowSize);
+    _allowWindowSize = min(maxWindow, _allowWindowSize);
   }
 
   int get currentWindow {
-    var c = _allowWindowSize ~/ DEFAULT_REQUEST_LENGTH;
+    var c = _allowWindowSize ~/ defaultRequestLength;
     // var cw = 2 + (currentSpeed * 500 / DEFAULT_REQUEST_LENGTH).ceil();
     // print('$cw, $c');
     return c;

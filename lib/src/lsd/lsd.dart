@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'dart:async';
 import 'dart:io';
 
@@ -114,7 +116,9 @@ class LSD with EventsEmittable<LSDEvent> {
   ///
   ///\r\n
   String _createMessage() {
-    return '${ANNOUNCE_FIRST_LINE}Host: ${LSD_HOST_STRING}Port: $port\r\nInfohash: ${_infoHashHex}\r\ncookie: dt-client${_peerId}\r\n\r\n\r\n';
+    return '${ANNOUNCE_FIRST_LINE}Host: ${LSD_HOST_STRING}Port: '
+        '$port\r\nInfohash: $_infoHashHex\r\ncookie: '
+        'dt-client$_peerId\r\n\r\n\r\n';
   }
 
   void close() {

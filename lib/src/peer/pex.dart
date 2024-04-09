@@ -7,15 +7,15 @@ import 'package:dtorrent_common/dtorrent_common.dart';
 
 import '../peer/peer.dart';
 
-const pex_flag_prefers_encryption = 0x01;
+const pexFlagPrefersEncryption = 0x01;
 
-const pex_flag_upload_only = 0x02;
+const pexFlagUploadOnly = 0x02;
 
-const pex_flag_supports_uTP = 0x04;
+const pexFlagSupportsUTP = 0x04;
 
-const pex_flag_supports_holepunch = 0x08;
+const pexFlagSupportsHolepunch = 0x08;
 
-const pex_flag_reachable = 0x10;
+const pexFlagReachable = 0x10;
 
 mixin PEX {
   Timer? _timer;
@@ -95,21 +95,19 @@ mixin PEX {
           for (var i = 0; i < ips.length; i++) {
             var f = flag[i];
             var opts = {};
-            if (f & pex_flag_prefers_encryption ==
-                pex_flag_prefers_encryption) {
+            if (f & pexFlagPrefersEncryption == pexFlagPrefersEncryption) {
               opts['e'] = true;
             }
-            if (f & pex_flag_upload_only == pex_flag_upload_only) {
+            if (f & pexFlagUploadOnly == pexFlagUploadOnly) {
               opts['uploadonly'] = true;
             }
-            if (f & pex_flag_supports_uTP == pex_flag_supports_uTP) {
+            if (f & pexFlagSupportsUTP == pexFlagSupportsUTP) {
               opts['utp'] = true;
             }
-            if (f & pex_flag_supports_holepunch ==
-                pex_flag_supports_holepunch) {
+            if (f & pexFlagSupportsHolepunch == pexFlagSupportsHolepunch) {
               opts['holepunch'] = true;
             }
-            if (f & pex_flag_reachable == pex_flag_reachable) {
+            if (f & pexFlagReachable == pexFlagReachable) {
               opts['reachable'] = true;
             }
             Timer.run(() => addPEXPeer(source, ips?[i], opts));

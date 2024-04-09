@@ -4,7 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:dtorrent_common/dtorrent_common.dart';
 import 'package:dtorrent_task/dtorrent_task.dart';
 
-String generatePeerId([String prefix = ID_PREFIX]) {
+String generatePeerId([String prefix = prefixID]) {
   var r = randomBytes(9);
   var base64Str = base64Encode(r);
   var id = prefix + base64Str;
@@ -33,10 +33,10 @@ Piece? getPiece(List<Piece> pieces, int byte) {
 /// pow(2, 14)
 ///
 /// download piece max size
-const DEFAULT_REQUEST_LENGTH = 16384;
+const defaultRequestLength = 16384;
 
 /// pow(2,17)
 ///
 /// Remote is request piece length large or eqaul this length
 /// , it must close the connection
-const MAX_REQUEST_LENGTH = 131072;
+const maxRequestLength = 131072;

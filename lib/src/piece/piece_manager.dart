@@ -83,7 +83,9 @@ class PieceManager
   void _processCompletePiece(int index) {
     try {
       events.emit(PieceWriteCompleted(index));
-    } catch (e) {}
+    } catch (e) {
+      // TODO(ivn): throw smth
+    }
   }
 
   bool _disposed = false;

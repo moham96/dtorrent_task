@@ -11,7 +11,7 @@ export 'src/stream/stream_events.dart';
 export 'src/task_events.dart';
 
 /// Peer ID prefix
-const ID_PREFIX = '-DT0201-';
+const prefixID = '-DT0201-';
 
 /// Current version number
 Future<String?> getTorrentTaskVersion() async {

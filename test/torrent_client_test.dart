@@ -114,7 +114,7 @@ void main() {
       var remain = Random().nextInt(100);
       totalSize = totalSize + remain;
       var p = Piece('aaaaaaa', 0, totalSize, 0);
-      var size = DEFAULT_REQUEST_LENGTH;
+      var size = defaultRequestLength;
       var subIndex = p.popSubPiece();
       subIndex = p.popLastSubPiece();
       assert(subIndex != null);
@@ -126,7 +126,7 @@ void main() {
     });
 
     test('piece length less than 16kb', () {
-      var p = Piece('aaaaaaa', 0, DEFAULT_REQUEST_LENGTH - 100, 0);
+      var p = Piece('aaaaaaa', 0, defaultRequestLength - 100, 0);
       var l = p.availableSubPieceCount;
       assert(l == 1);
       var sp = p.popSubPiece();

@@ -77,17 +77,17 @@ void main() async {
       ..on<PeerRequestEvent>((event) {
         callMap['request'] = true;
         assert(event.begin == 0);
-        assert(event.length == DEFAULT_REQUEST_LENGTH);
+        assert(event.length == defaultRequestLength);
         if (event.index == 1) {
           event.peer.sendRejectRequest(
-              event.index, event.begin, DEFAULT_REQUEST_LENGTH);
+              event.index, event.begin, defaultRequestLength);
         }
       })
       ..on<PeerCancelEvent>((event) {
         callMap['cancel'] = true;
         assert(event.index == 1);
         assert(event.begin == 0);
-        assert(event.length == DEFAULT_REQUEST_LENGTH);
+        assert(event.length == defaultRequestLength);
         print('receive client cancel');
       })
       ..on<PeerPortChanged>((event) {
@@ -125,7 +125,7 @@ void main() async {
       })
       ..on<PeerPieceEvent>((event) async {
         callMap['piece'] = true;
-        assert(event.block.length == DEFAULT_REQUEST_LENGTH);
+        assert(event.block.length == defaultRequestLength);
         assert(event.block[0] == event.index);
         assert(event.block[1] == event.begin);
         var id = String.fromCharCodes(event.block.getRange(2, 22));
@@ -173,7 +173,7 @@ void main() async {
     ..on<PeerChokeChanged>((event) {
       if (!event.choked) {
         event.peer.sendRequest(1, 0);
-        event.peer.requestCancel(1, 0, DEFAULT_REQUEST_LENGTH);
+        event.peer.requestCancel(1, 0, defaultRequestLength);
         event.peer.sendRequest(1, 0);
         event.peer.sendHave(2);
         event.peer.sendKeepAlive();
@@ -186,11 +186,11 @@ void main() async {
     ..on<PeerRejectEvent>((event) {
       assert(event.index == 1);
       assert(event.begin == 0);
-      assert(event.length == DEFAULT_REQUEST_LENGTH);
+      assert(event.length == defaultRequestLength);
       callMap['reject_request'] = true;
     })
     ..on<PeerRequestEvent>((event) {
-      var content = Uint8List(DEFAULT_REQUEST_LENGTH);
+      var content = Uint8List(defaultRequestLength);
       var view = ByteData.view(content.buffer);
       view.setUint8(0, event.index);
       view.setUint8(1, event.begin);

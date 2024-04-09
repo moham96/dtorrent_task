@@ -37,13 +37,13 @@ class Piece {
   bool flushed = false;
 
   Piece(this.hashString, this.index, this.byteLength, this.offset,
-      {int requestLength = DEFAULT_REQUEST_LENGTH, bool isComplete = false})
+      {int requestLength = defaultRequestLength, bool isComplete = false})
       : _subPieceSize = requestLength,
         _subPiecesCount = (byteLength + requestLength - 1) ~/ requestLength {
     if (requestLength <= 0) {
       throw Exception('Request length should bigger than zero');
     }
-    if (requestLength > DEFAULT_REQUEST_LENGTH) {
+    if (requestLength > defaultRequestLength) {
       throw Exception('Request length should smaller than 16kb');
     }
     _subPiecesQueue =
@@ -141,13 +141,13 @@ class Piece {
   /// If the subpiece has already been marked, return false; if it hasn't been marked
   /// yet, mark it as completed and return true.
   bool subPieceDownloadComplete(int begin) {
-    var subindex = begin ~/ DEFAULT_REQUEST_LENGTH;
+    var subindex = begin ~/ defaultRequestLength;
     _subPiecesQueue.remove(subindex);
     return _writingSubPieces.add(subindex);
   }
 
   bool subPieceWriteComplete(int begin) {
-    var subindex = begin ~/ DEFAULT_REQUEST_LENGTH;
+    var subindex = begin ~/ defaultRequestLength;
     // _subPiecesQueue.remove(subindex); // Is this possible?
     _writingSubPieces.remove(subindex);
     var re = _downloadedSubPieces.add(subindex);
