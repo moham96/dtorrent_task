@@ -74,6 +74,10 @@ class TorrentStream
 
   ServerSocket? _serverSocket;
 
+  /// Recommend: 6881-6889
+  /// https://wiki.wireshark.org/BitTorrent#:~:text=The%20well%20known%20TCP%20port,6969%20for%20the%20tracker%20port).
+  int port;
+
   final Set<InternetAddress> _comingIp = {};
 
   EventsListener<TorrentAnnounceEvent>? trackerListener;
@@ -81,7 +85,9 @@ class TorrentStream
   EventsListener<DownloadFileManagerEvent>? fileManagerListener;
   EventsListener<LSDEvent>? lsdListener;
 
-  TorrentStream(this._metaInfo, this._savePath) {
+  TorrentStream(this._metaInfo, this._savePath, [this.port = 0]) {
+    assert(port <= 65535 && port >= 0,
+        'TorrentStream: port must be in range 0 - 65535');
     _peerId = generatePeerId();
   }
 
@@ -301,7 +307,7 @@ class TorrentStream
     // Incoming peer:
     state = TaskState.running;
 
-    _serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    _serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, port);
     await startStreaming();
     _serverSocket?.listen(_hookInPeer);
 
