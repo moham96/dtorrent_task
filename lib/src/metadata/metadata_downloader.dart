@@ -32,6 +32,10 @@ class MetadataDownloader
 
   InternetAddress? localExternalIP;
 
+  /// Recommend: 6881-6889
+  /// https://wiki.wireshark.org/BitTorrent#:~:text=The%20well%20known%20TCP%20port,6969%20for%20the%20tracker%20port).
+  int port;
+
   int? _metaDataSize;
 
   int? _metaDataBlockNum;
@@ -75,11 +79,13 @@ class MetadataDownloader
 
   final Map<String, Timer> _requestTimeout = {};
 
-  MetadataDownloader(this._infoHashString) {
+  MetadataDownloader(this._infoHashString, [this.port = 0]) {
     _localPeerId = generatePeerId();
     _infoHashBuffer = hexString2Buffer(_infoHashString)!;
     assert(_infoHashBuffer.isNotEmpty && _infoHashBuffer.length == 20,
         'Info Hash String is incorrect');
+    assert(port <= 65535 && port >= 0,
+        'MetadataDownloader: port must be in range 0 - 65535');
     _init();
   }
   Future<void> _init() async {
@@ -367,7 +373,7 @@ class MetadataDownloader
       'numwant': 50,
       'compact': 1,
       'peerId': _localPeerId,
-      'port': 0
+      'port': port,
     };
     return Future.value(map);
   }
