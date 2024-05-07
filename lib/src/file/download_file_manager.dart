@@ -96,7 +96,6 @@ class DownloadFileManager with EventsEmittable<DownloadFileManagerEvent> {
       var pieceIndex = pieceIndices.elementAt(i);
       var files = _piece2fileMap?[pieceIndex];
       if (files == null || files.isEmpty) continue;
-      _pieces[pieceIndex].flushed = true;
       for (var i = 0; i < files.length; i++) {
         var file = files[i];
         var pieces = _file2pieceMap[file.torrentFilePath];

@@ -6,6 +6,9 @@ import 'dart:typed_data';
 import 'package:dtorrent_common/dtorrent_common.dart';
 import 'package:dtorrent_task/src/lsd/lsd_events.dart';
 import 'package:events_emitter2/events_emitter2.dart';
+import 'package:logging/logging.dart';
+
+var _log = Logger('lsd');
 
 // const LSD_HOST = '239.192.152.143';
 // const LSD_PORT = 6771;
@@ -39,8 +42,7 @@ class LSD with EventsEmittable<LSDEvent> {
     if (port == null) {
       throw Exception('lsd port is not set');
     }
-    _socket ??= await RawDatagramSocket.bind(InternetAddress.anyIPv4, LSD_PORT,
-        reusePort: true);
+    _socket ??= await RawDatagramSocket.bind(InternetAddress.anyIPv4, LSD_PORT);
     _socket?.listen((event) {
       if (event == RawSocketEvent.read) {
         var datagram = _socket?.receive();
@@ -50,7 +52,11 @@ class LSD with EventsEmittable<LSDEvent> {
           _processReceive(str, datagram.address);
         }
       }
-    }, onDone: () {}, onError: (e) {});
+    }, onDone: () {
+      _log.info('lsd done');
+    }, onError: (e) {
+      _log.warning('lsd error', e);
+    });
     await _announce();
   }
 

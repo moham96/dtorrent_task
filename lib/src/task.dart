@@ -234,13 +234,13 @@ class _TorrentTask
     }
   }
 
-  late String _infoHashString;
+  String? _infoHashString;
 
   Timer? _dhtRepeatTimer;
 
   Future<PeersManager> _init(Torrent model, String savePath) async {
-    _lsd = LSD(model.infoHash, _peerId);
-    _infoHashString = String.fromCharCodes(model.infoHashBuffer);
+    _lsd ??= LSD(model.infoHash, _peerId);
+    _infoHashString ??= String.fromCharCodes(model.infoHashBuffer);
     _tracker ??= TorrentAnnounceTracker(this);
     _stateFile ??= await StateFile.getStateFile(savePath, model);
     _pieceManager ??= PieceManager.createPieceManager(
@@ -500,16 +500,16 @@ class _TorrentTask
 
   Future<void> processPieceAccepted(int index) async {
     var piece = _pieceManager?[index];
-    if (piece == null ||
-        piece.block == null ||
-        _fileManager == null ||
-        _pieceManager == null) return;
+    if (piece == null || _fileManager == null || _pieceManager == null) return;
+
+    var block = piece.flush();
+    if (block == null) return;
 
     if (_fileManager!.localHave(index)) return;
     var written = await _fileManager!.writeFile(
       index,
       0,
-      piece.block!,
+      block,
     );
 
     if (!written) return;
@@ -755,6 +755,7 @@ class _TorrentTask
     await dispose();
   }
 
+  @override
   Future<void> dispose() async {
     await _flushFiles(_flushIndicesBuffer);
     _flushIndicesBuffer.clear();

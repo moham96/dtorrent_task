@@ -17,7 +17,7 @@ class Piece {
   // the offseted end position relative to the torrent block
   int get end => offset + byteLength;
 
-  Uint8List? block;
+  Uint8List? _block;
 
   final Set<Peer> _availablePeers = <Peer>{};
   Set<Peer> get availablePeers => _availablePeers;
@@ -40,13 +40,14 @@ class Piece {
   late final int _lastSubPieceSize =
       byteLength - (_subPieceSize * (_subPiecesCount - 1));
 
-  bool flushed = false;
+  bool _flushed = false;
+
+  bool get flushed => _flushed;
 
   Piece(this.hashString, this.index, this.byteLength, this.offset,
       {int requestLength = DEFAULT_REQUEST_LENGTH, bool isComplete = false})
       : _subPieceSize = requestLength,
-        _subPiecesCount = (byteLength + requestLength - 1) ~/ requestLength,
-        block = Uint8List(byteLength) {
+        _subPiecesCount = (byteLength + requestLength - 1) ~/ requestLength {
     if (requestLength <= 0) {
       throw Exception('Request length should bigger than zero');
     }
@@ -56,9 +57,14 @@ class Piece {
     _subPiecesQueue =
         Queue.from(List.generate(_subPiecesCount, (index) => index));
     if (isComplete) {
-      flushed = true;
+      _flushed = true;
       _onDiskSubPieces.addAll(_subPiecesQueue);
     }
+  }
+
+  void init() {
+    if (flushed) return;
+    _block ??= Uint8List(byteLength);
   }
 
   int calculateLastDownloadedByte(int start) {
@@ -147,14 +153,14 @@ class Piece {
   /// If the subpiece has already been marked, return false; if it hasn't been marked
   /// yet, mark it as completed and return true.
   bool subPieceReceived(int begin, List<int> block) {
-    this.block?.setRange(begin, begin + block.length, block);
+    init();
+    _block?.setRange(begin, begin + block.length, block);
     var subindex = begin ~/ DEFAULT_REQUEST_LENGTH;
     _subPiecesQueue.remove(subindex);
     return _inMemorySubPieces.add(subindex);
   }
 
   bool writeComplete() {
-    clearBlock();
     _onDiskSubPieces.addAll(_inMemorySubPieces);
     _inMemorySubPieces.clear();
     subPieceQueue.clear();
@@ -226,12 +232,12 @@ class Piece {
   }
 
   bool validatePiece() {
-    if (block == null ||
-        block!.length < byteLength ||
+    if (_block == null ||
+        _block!.length < byteLength ||
         !isCompletelyDownloaded) {
       throw Exception("Piece is cleared");
     }
-    var digest = sha1.convert(block!);
+    var digest = sha1.convert(_block!);
     var valid = digest.toString() == hashString;
     if (!valid) {
       for (var subPiece in {..._inMemorySubPieces}) {
@@ -241,8 +247,12 @@ class Piece {
     return valid;
   }
 
-  void clearBlock() {
-    block = null;
+  Uint8List? flush() {
+    if (_block == null || _flushed) return null;
+    var flushed = Uint8List.fromList(_block!);
+    _block = null;
+    _flushed = true;
+    return flushed;
   }
 
   bool _disposed = false;
