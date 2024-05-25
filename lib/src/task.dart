@@ -38,11 +38,14 @@ var _log = Logger('TorrentTask');
 
 abstract class TorrentTask with EventsEmittable<TaskEvent> {
   factory TorrentTask.newTask(Torrent metaInfo, String savePath,
-      [bool stream = false]) {
+      [bool stream = false, int port = 0]) {
+    assert(port <= 65535 && port >= 0,
+    'TorrentTask: port must be in range 0 - 65535');
     return _TorrentTask(
       metaInfo,
       savePath,
       stream: stream,
+      port: port,
     );
   }
   void startAnnounceUrl(Uri url, Uint8List infoHash);
@@ -54,6 +57,10 @@ abstract class TorrentTask with EventsEmittable<TaskEvent> {
   // The dht instance
 
   DHT? get dht;
+
+  /// Recommend: 6881-6889
+  /// https://wiki.wireshark.org/BitTorrent#:~:text=The%20well%20known%20TCP%20port,6969%20for%20the%20tracker%20port).
+  int get port;
 
   int get allPeersNumber;
 
@@ -135,6 +142,9 @@ class _TorrentTask
 
   TorrentAnnounceTracker? _tracker;
 
+  @override
+  final int port;
+
   DHT? _dht = DHT();
 
   @override
@@ -194,7 +204,7 @@ class _TorrentTask
   EventsListener<DHTEvent>? _dhtListener;
 
   _TorrentTask(this._metaInfo, this._savePath,
-      {this.maxWriteBufferSize = MAX_WRITE_BUFFER_SIZE, this.stream = false}) {
+      {this.maxWriteBufferSize = MAX_WRITE_BUFFER_SIZE, this.stream = false, this.port = 0}) {
     _peerId = generatePeerId();
   }
 
@@ -420,7 +430,7 @@ class _TorrentTask
   Future<Map> start() async {
     state = TaskState.running;
     // Incoming peer:
-    _serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    _serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, port);
     await _init(_metaInfo, _savePath);
     _serverSocketListener = _serverSocket?.listen(_hookInPeer);
     _utpServer ??= await ServerUTPSocket.bind(
