@@ -17,6 +17,7 @@ class Piece {
   // the offseted end position relative to the torrent block
   int get end => offset + byteLength;
 
+  //Uint8List? block;
   Uint8List? _block;
 
   final Set<Peer> _availablePeers = <Peer>{};
@@ -37,31 +38,30 @@ class Piece {
   final int _subPieceSize;
   int get subPieceSize => _subPieceSize;
 
-  late final int _lastSubPieceSize =
-      byteLength - (_subPieceSize * (_subPiecesCount - 1));
+  late final int _lastSubPieceSize = byteLength - (_subPieceSize * (_subPiecesCount - 1));
 
+  //bool flushed = false;
   bool _flushed = false;
 
   bool get flushed => _flushed;
 
-  Piece(this.hashString, this.index, this.byteLength, this.offset,
-      {int requestLength = DEFAULT_REQUEST_LENGTH, bool isComplete = false})
-      : _subPieceSize = requestLength,
-        _subPiecesCount = (byteLength + requestLength - 1) ~/ requestLength {
+  Piece(this.hashString, this.index, this.byteLength, this.offset, {int requestLength = DEFAULT_REQUEST_LENGTH, bool isComplete = false})
+    : _subPieceSize = requestLength,
+      //_subPiecesCount = (byteLength + requestLength - 1) ~/ requestLength,
+      // block = Uint8List(byteLength) {
+      _subPiecesCount = (byteLength + requestLength - 1) ~/ requestLength {
     if (requestLength <= 0) {
       throw Exception('Request length should bigger than zero');
     }
     if (requestLength > DEFAULT_REQUEST_LENGTH) {
       throw Exception('Request length should smaller than 16kb');
     }
-    _subPiecesQueue =
-        Queue.from(List.generate(_subPiecesCount, (index) => index));
+    _subPiecesQueue = Queue.from(List.generate(_subPiecesCount, (index) => index));
     if (isComplete) {
       _flushed = true;
       _onDiskSubPieces.addAll(_subPiecesQueue);
     }
   }
-
   void init() {
     if (flushed) return;
     _block ??= Uint8List(byteLength);
@@ -71,8 +71,7 @@ class Piece {
     // TODO: Does this work if the requested start is inside the lastpiece?
     // TODO: Simplify and refactor
 
-    var subPieces =
-        {...subPieceQueue, ..._inMemorySubPieces, ..._onDiskSubPieces}.toList();
+    var subPieces = {...subPieceQueue, ..._inMemorySubPieces, ..._onDiskSubPieces}.toList();
     subPieces.sort();
 
     var startSubpiece = ((start - offset - 1) ~/ _subPieceSize);
@@ -153,6 +152,7 @@ class Piece {
   /// If the subpiece has already been marked, return false; if it hasn't been marked
   /// yet, mark it as completed and return true.
   bool subPieceReceived(int begin, List<int> block) {
+    // this.block?.setRange(begin, begin + block.length, block);
     init();
     _block?.setRange(begin, begin + block.length, block);
     var subindex = begin ~/ DEFAULT_REQUEST_LENGTH;
@@ -161,6 +161,7 @@ class Piece {
   }
 
   bool writeComplete() {
+    //clearBlock();
     _onDiskSubPieces.addAll(_inMemorySubPieces);
     _inMemorySubPieces.clear();
     subPieceQueue.clear();
@@ -203,9 +204,7 @@ class Piece {
   }
 
   bool pushSubPiece(int subIndex) {
-    if (subPieceQueue.contains(subIndex) ||
-        _inMemorySubPieces.contains(subIndex) ||
-        _onDiskSubPieces.contains(subIndex)) return false;
+    if (subPieceQueue.contains(subIndex) || _inMemorySubPieces.contains(subIndex) || _onDiskSubPieces.contains(subIndex)) return false;
     subPieceQueue.addFirst(subIndex);
     return true;
   }
@@ -216,9 +215,7 @@ class Piece {
   }
 
   bool pushSubPieceLast(int index) {
-    if (subPieceQueue.contains(index) ||
-        _inMemorySubPieces.contains(index) ||
-        _onDiskSubPieces.contains(index)) return false;
+    if (subPieceQueue.contains(index) || _inMemorySubPieces.contains(index) || _onDiskSubPieces.contains(index)) return false;
     subPieceQueue.addLast(index);
     return true;
   }
@@ -232,11 +229,10 @@ class Piece {
   }
 
   bool validatePiece() {
-    if (_block == null ||
-        _block!.length < byteLength ||
-        !isCompletelyDownloaded) {
+    if (_block == null || _block!.length < byteLength || !isCompletelyDownloaded) {
       throw Exception("Piece is cleared");
     }
+
     var digest = sha1.convert(_block!);
     var valid = digest.toString() == hashString;
     if (!valid) {

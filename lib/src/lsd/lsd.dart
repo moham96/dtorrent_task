@@ -16,8 +16,7 @@ var _log = Logger('lsd');
 class LSD with EventsEmittable<LSDEvent> {
   static final String LSD_HOST_STRING = '239.192.152.143:6771\r\n';
 
-  static final InternetAddress LSD_HOST =
-      InternetAddress.fromRawAddress(Uint8List.fromList([239, 192, 152, 143]));
+  static final InternetAddress LSD_HOST = InternetAddress.fromRawAddress(Uint8List.fromList([239, 192, 152, 143]));
   static final LSD_PORT = 6771;
 
   static final String ANNOUNCE_FIRST_LINE = 'BT-SEARCH * HTTP/1.1\r\n';
@@ -53,9 +52,9 @@ class LSD with EventsEmittable<LSDEvent> {
         }
       }
     }, onDone: () {
-      _log.info('lsd done');
+      print('lsd done');
     }, onError: (e) {
-      _log.warning('lsd error', e);
+      print('lsd error $e');
     });
     await _announce();
   }
@@ -123,7 +122,7 @@ class LSD with EventsEmittable<LSDEvent> {
   ///
   ///\r\n
   String _createMessage() {
-    return '${ANNOUNCE_FIRST_LINE}Host: ${LSD_HOST_STRING}Port: $port\r\nInfohash: ${_infoHashHex}\r\ncookie: dt-client${_peerId}\r\n\r\n\r\n';
+    return '${ANNOUNCE_FIRST_LINE}Host: ${LSD_HOST_STRING}Port: $port\r\nInfohash: $_infoHashHex\r\ncookie: dt-client$_peerId\r\n\r\n\r\n';
   }
 
   void close() {

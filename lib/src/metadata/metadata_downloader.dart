@@ -11,6 +11,7 @@ import 'package:dtorrent_task/src/metadata/metadata_downloader_events.dart';
 import 'package:dtorrent_task/src/peer/protocol/peer_events.dart';
 import 'package:dtorrent_tracker/dtorrent_tracker.dart' hide PeerEvent;
 import 'package:events_emitter2/events_emitter2.dart';
+import 'package:utp_protocol/utp_protocol.dart';
 
 import '../peer/protocol/peer.dart';
 import '../peer/extensions/holepunch.dart';
@@ -18,17 +19,8 @@ import '../peer/extensions/pex.dart';
 import '../utils.dart';
 import 'metadata_messenger.dart';
 
-class MetadataDownloader
-    with
-        Holepunch,
-        PEX,
-        MetaDataMessenger,
-        EventsEmittable<MetadataDownloaderEvent>
-    implements AnnounceOptionsProvider {
-  final List<InternetAddress> IGNORE_IPS = [
-    InternetAddress.tryParse('0.0.0.0')!,
-    InternetAddress.tryParse('127.0.0.1')!
-  ];
+class MetadataDownloader with Holepunch, PEX, MetaDataMessenger, EventsEmittable<MetadataDownloaderEvent> implements AnnounceOptionsProvider {
+  final List<InternetAddress> IGNORE_IPS = [InternetAddress.tryParse('0.0.0.0')!, InternetAddress.tryParse('127.0.0.1')!];
 
   InternetAddress? localExternalIP;
 
@@ -38,9 +30,7 @@ class MetadataDownloader
 
   int? get metaDataSize => _metaDataSize;
 
-  num get progress => _metaDataBlockNum != null
-      ? _completedPieces.length / _metaDataBlockNum! * 100
-      : 0;
+  num get progress => _metaDataBlockNum != null ? _completedPieces.length / _metaDataBlockNum! * 100 : 0;
 
   late String _localPeerId;
 
@@ -78,10 +68,17 @@ class MetadataDownloader
   MetadataDownloader(this._infoHashString) {
     _localPeerId = generatePeerId();
     _infoHashBuffer = hexString2Buffer(_infoHashString)!;
-    assert(_infoHashBuffer.isNotEmpty && _infoHashBuffer.length == 20,
-        'Info Hash String is incorrect');
+    assert(_infoHashBuffer.isNotEmpty && _infoHashBuffer.length == 20, 'Info Hash String is incorrect');
     _init();
   }
+
+  UTPSocketClient? _globalUTPClient;
+
+  UTPSocketClient getGlobalUTPClient() {
+    _globalUTPClient ??= UTPSocketClient();
+    return _globalUTPClient!;
+  }
+
   Future<void> _init() async {
     try {
       localExternalIP = InternetAddress.tryParse(await Ipify.ipv4());
@@ -134,8 +131,7 @@ class MetadataDownloader
   ///
   /// Usually [socket] is null , unless this peer was incoming connection, but
   /// this type peer was managed by [TorrentTask] , user don't need to know that.
-  void addNewPeerAddress(CompactAddress address, PeerSource source,
-      [PeerType type = PeerType.TCP, dynamic socket]) {
+  void addNewPeerAddress(CompactAddress address, PeerSource source, [PeerType type = PeerType.TCP, dynamic socket]) {
     if (!_running) return;
     if (address.address == localExternalIP) return;
     if (socket != null) {
@@ -151,7 +147,7 @@ class MetadataDownloader
         peer = Peer.newTCPPeer(address, _infoHashBuffer, 0, socket, source);
       }
       if (type == PeerType.UTP) {
-        peer = Peer.newUTPPeer(address, _infoHashBuffer, 0, socket, source);
+        peer = Peer.newUTPPeer(address, _infoHashBuffer, 0, socket, source, client: getGlobalUTPClient());
       }
       if (peer != null) _hookPeer(peer);
     }
@@ -162,13 +158,10 @@ class MetadataDownloader
     if (_peerExist(peer)) return;
     _peerListeners[peer] = peer.createListener();
     _peerListeners[peer]!
-      ..on<PeerDisposeEvent>(
-          (event) => _processPeerDispose(event.peer, event.reason))
-      ..on<PeerHandshakeEvent>((event) =>
-          _processPeerHandshake(event.peer, event.remotePeerId, event.data))
+      ..on<PeerDisposeEvent>((event) => _processPeerDispose(event.peer, event.reason))
+      ..on<PeerHandshakeEvent>((event) => _processPeerHandshake(event.peer, event.remotePeerId, event.data))
       ..on<PeerConnected>((event) => _peerConnected(event.peer))
-      ..on<ExtendedEvent>((event) =>
-          _processExtendedMessage(peer, event.eventName, event.data));
+      ..on<ExtendedEvent>((event) => _processExtendedMessage(peer, event.eventName, event.data));
     _registerExtended(peer);
     peer.connect();
   }
@@ -233,9 +226,7 @@ class MetadataDownloader
         }
       }
 
-      if (localExternalIP != null &&
-          data['yourip'] != null &&
-          (data['yourip'].length == 4 || data['yourip'].length == 16)) {
+      if (localExternalIP != null && data['yourip'] != null && (data['yourip'].length == 4 || data['yourip'].length == 16)) {
         InternetAddress myIp;
         try {
           myIp = InternetAddress.fromRawAddress(data['yourip']);
@@ -294,15 +285,17 @@ class MetadataDownloader
 
   void _pieceDownloadComplete(int piece, int start, List<int> bytes) async {
     // Prevent multiple invocations"
-    if (_completedPieces.length >= _metaDataBlockNum! ||
-        _completedPieces.contains(piece)) {
+    if (_completedPieces.length >= _metaDataBlockNum! || _completedPieces.contains(piece)) {
+      print('Metadata piece $piece already processed or complete');
       return;
     }
     var started = piece * 16 * 1024;
+    print('Piece metadata $piece downloaded, copying to _infoDatas[$started]');
     List.copyRange(_infoDatas, started, bytes, start);
     _completedPieces.add(piece);
     events.emit(MetaDataDownloadProgress(progress));
     if (_completedPieces.length >= _metaDataBlockNum!) {
+      print('Metadata complete! Total pieces: ${_completedPieces.length}');
       // At this point, stop and emit the event
       await stop();
       events.emit(MetaDataDownloadComplete(_infoDatas));
@@ -337,9 +330,8 @@ class MetadataDownloader
 
   @override
   void addPEXPeer(source, CompactAddress address, Map options) {
-    if ((options['utp'] != null || options['ut_holepunch'] != null) &&
-        options['reachable'] == null) {
-      var peer = source as Peer;
+    if ((options['utp'] != null || options['ut_holepunch'] != null) && options['reachable'] == null) {
+      var peer = source;
       var message = getRendezvousMessage(address);
       peer.sendExtendMessage('ut_holepunch', message);
       return;
@@ -360,15 +352,7 @@ class MetadataDownloader
 
   @override
   Future<Map<String, dynamic>> getOptions(Uri uri, String infoHash) {
-    var map = {
-      'downloaded': 0,
-      'uploaded': 0,
-      'left': 16 * 1024 * 20,
-      'numwant': 50,
-      'compact': 1,
-      'peerId': _localPeerId,
-      'port': 0
-    };
+    var map = {'downloaded': 0, 'uploaded': 0, 'left': 16 * 1024 * 20, 'numwant': 50, 'compact': 1, 'peerId': _localPeerId, 'port': 0};
     return Future.value(map);
   }
 }

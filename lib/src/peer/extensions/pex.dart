@@ -24,7 +24,8 @@ mixin PEX {
 
   void startPEX() {
     _timer?.cancel();
-    _timer = Timer.periodic(Duration(seconds: 60), (timer) {
+    //era 60 segundos
+    _timer = Timer.periodic(Duration(seconds: 5), (timer) {
       sendUtPexPeers();
     });
   }
@@ -44,17 +45,20 @@ mixin PEX {
     }
     _lastUTPEX.clear();
 
-    var data = {};
+    final data = <String, List<int>>{
+      'added': [],
+      'dropped': [],
+    };
     data['added'] = [];
     for (var element in added) {
       _lastUTPEX.add(element);
-      data['added'].addAll(element.toBytes());
+      data['added']!.addAll(element.toBytes());
     }
     data['dropped'] = [];
     for (var element in dropped) {
-      data['dropped'].addAll(element.toBytes());
+      data['dropped']!.addAll(element.toBytes());
     }
-    if (data['added'].isEmpty && data['dropped'].isEmpty) return;
+    if (data['added']!.isEmpty && data['dropped']!.isEmpty) return;
     var message = encode(data);
     for (var peer in activePeers) {
       peer.sendExtendMessage('ut_pex', message);
@@ -67,9 +71,7 @@ mixin PEX {
     _parseAdded(source, datas, 'added6', InternetAddressType.IPv6);
   }
 
-  dynamic _parseAdded(dynamic source, Map datas,
-      [String keyStr = 'added',
-      InternetAddressType type = InternetAddressType.IPv4]) {
+  dynamic _parseAdded(dynamic source, Map datas, [String keyStr = 'added', InternetAddressType type = InternetAddressType.IPv4]) {
     var added = datas[keyStr];
     if (added != null && added is List && added.isNotEmpty) {
       if (added is! List<int>) {
@@ -83,8 +85,8 @@ mixin PEX {
         if (type == InternetAddressType.IPv6) {
           ips = CompactAddress.parseIPv6Addresses(added);
         }
-      } catch (e) {
-        // do nothing
+      } catch (e, st) {
+        print('PEX parse error: $e\n$st');
       }
       var flag = datas['$keyStr.f'];
       if (flag != null && flag is List && flag.isNotEmpty) {
@@ -99,9 +101,8 @@ mixin PEX {
               continue;
             }
             var f = flag[i];
-            var opts = {};
-            if (f & pex_flag_prefers_encryption ==
-                pex_flag_prefers_encryption) {
+            var opts = <String, dynamic>{};
+            if (f & pex_flag_prefers_encryption == pex_flag_prefers_encryption) {
               opts['e'] = true;
             }
             if (f & pex_flag_upload_only == pex_flag_upload_only) {
@@ -110,21 +111,20 @@ mixin PEX {
             if (f & pex_flag_supports_uTP == pex_flag_supports_uTP) {
               opts['utp'] = true;
             }
-            if (f & pex_flag_supports_holepunch ==
-                pex_flag_supports_holepunch) {
+            if (f & pex_flag_supports_holepunch == pex_flag_supports_holepunch) {
               opts['holepunch'] = true;
             }
             if (f & pex_flag_reachable == pex_flag_reachable) {
               opts['reachable'] = true;
             }
-            Timer.run(() => addPEXPeer(source, ips?[i], opts));
+            addPEXPeer(source, ips[i], opts);
           }
         }
       }
     }
   }
 
-  void addPEXPeer(dynamic source, CompactAddress address, Map options);
+  void addPEXPeer(Peer source, CompactAddress address, Map<String, dynamic> options);
 
   List<int>? _convert(List added) {
     var intList = <int>[];

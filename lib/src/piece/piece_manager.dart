@@ -10,9 +10,7 @@ import 'piece_selector.dart';
 
 var _log = Logger('PieceManager');
 
-class PieceManager
-    with EventsEmittable<PieceManagerEvent>
-    implements PieceProvider {
+class PieceManager with EventsEmittable<PieceManagerEvent> implements PieceProvider {
   bool _isFirst = true;
 
   final Map<int, Piece> _pieces = {};
@@ -32,8 +30,7 @@ class PieceManager
 
   PieceManager(this._pieceSelector, int piecesNumber);
 
-  static PieceManager createPieceManager(
-      PieceSelector pieceSelector, Torrent metaInfo, Bitfield bitfield) {
+  static PieceManager createPieceManager(PieceSelector pieceSelector, Torrent metaInfo, Bitfield bitfield) {
     var p = PieceManager(pieceSelector, metaInfo.pieces.length);
     p.initPieces(metaInfo, bitfield);
     return p;
@@ -48,8 +45,7 @@ class PieceManager
       }
 
       if (bitfield.getBit(i)) {
-        var piece = Piece(metaInfo.pieces[i], i, byteLength, startbyte,
-            isComplete: true);
+        var piece = Piece(metaInfo.pieces[i], i, byteLength, startbyte, isComplete: true);
         _pieces[i] = piece;
       } else {
         var piece = Piece(metaInfo.pieces[i], i, byteLength, startbyte);
@@ -73,8 +69,7 @@ class PieceManager
     }
   }
 
-  Piece? selectPiece(
-      Peer peer, PieceProvider provider, final Set<int>? suggestPieces) {
+  Piece? selectPiece(Peer peer, PieceProvider provider, final Set<int>? suggestPieces) {
     var piece = _pieceSelector.selectPiece(peer, this, _isFirst, suggestPieces);
     _isFirst = false;
     if (piece != null) processDownloadingPiece(piece.index);

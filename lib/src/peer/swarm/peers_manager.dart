@@ -8,14 +8,15 @@ import 'package:dtorrent_task/src/peer/protocol/peer_events.dart';
 import 'package:dtorrent_task/src/peer/swarm/peers_manager_events.dart';
 import 'package:events_emitter2/events_emitter2.dart';
 import 'package:logging/logging.dart';
+import 'package:utp_protocol/utp_protocol.dart';
 
 import '../protocol/peer.dart';
 import '../extensions/pex.dart';
 import '../extensions/holepunch.dart';
 
-const MAX_ACTIVE_PEERS = 50;
+const MAX_ACTIVE_PEERS = 250;
 
-const MAX_WRITE_BUFFER_SIZE = 10 * 1024 * 1024;
+const MAX_WRITE_BUFFER_SIZE = 20 * 1024 * 1024;
 
 const MAX_UPLOADED_NOTIFY_SIZE = 1024 * 1024 * 10; // 10 mb
 
@@ -25,10 +26,7 @@ var _log = Logger('PeersManager');
 /// TODO:
 /// - The external Suggest Piece/Fast Allow requests are not handled.
 class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
-  final List<InternetAddress> IGNORE_IPS = [
-    InternetAddress.tryParse('0.0.0.0')!,
-    InternetAddress.tryParse('127.0.0.1')!
-  ];
+  final List<InternetAddress> IGNORE_IPS = [InternetAddress.tryParse('0.0.0.0')!, InternetAddress.tryParse('127.0.0.1')!];
 
   bool _disposed = false;
 
@@ -68,13 +66,16 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
 
   final String _localPeerId;
 
-  PeersManager(
-    this._localPeerId,
-    this._metaInfo,
-  ) {
+  PeersManager(this._localPeerId, this._metaInfo) {
     _init();
     // Start pex interval
     startPEX();
+  }
+  UTPSocketClient? _globalUTPClient;
+
+  getGlobalUTPClient() {
+    _globalUTPClient ??= UTPSocketClient();
+    return _globalUTPClient!;
   }
 
   Future<void> _init() async {
@@ -148,8 +149,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
   /// This speed calculation: sum(`active peer download speed`)
   double get currentDownloadSpeed {
     if (_activePeers.isEmpty) return 0.0;
-    return _activePeers.fold(
-        0.0, (p, element) => p + element.currentDownloadSpeed);
+    return _activePeers.fold(0.0, (p, element) => p + element.currentDownloadSpeed);
   }
 
   /// Current upload speed , b/ms
@@ -157,8 +157,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
   /// This speed calculation: sum(`active peer upload speed`)
   double get uploadSpeed {
     if (_activePeers.isEmpty) return 0.0;
-    return _activePeers.fold(
-        0.0, (p, element) => p + element.averageUploadSpeed);
+    return _activePeers.fold(0.0, (p, element) => p + element.averageUploadSpeed);
   }
 
   void _hookPeer(Peer peer) {
@@ -174,8 +173,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
       ..on<PeerPieceEvent>(_processReceivePiece)
       ..on<PeerRequestEvent>(_processRemoteRequest)
       ..on<PeerSuggestPiece>(_processSuggestPiece)
-      ..on<ExtendedEvent>((event) =>
-          _processExtendedMessage(peer, event.eventName, event.data));
+      ..on<ExtendedEvent>((event) => _processExtendedMessage(peer, event.eventName, event.data));
     _registerExtended(peer);
     peer.connect();
   }
@@ -206,9 +204,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
       parsePEXDatas(source, data);
     }
     if (name == 'handshake') {
-      if (localExternalIP != null &&
-          data['yourip'] != null &&
-          (data['yourip'].length == 4 || data['yourip'].length == 16)) {
+      if (localExternalIP != null && data['yourip'] != null && (data['yourip'].length == 4 || data['yourip'].length == 16)) {
         InternetAddress myIp;
         try {
           myIp = InternetAddress.fromRawAddress(data['yourip']);
@@ -226,26 +222,27 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
   ///
   /// Usually [socket] is null , unless this peer was incoming connection, but
   /// this type peer was managed by [TorrentTask] , user don't need to know that.
-  void addNewPeerAddress(CompactAddress? address, PeerSource source,
-      {PeerType? type, dynamic socket}) {
+  void addNewPeerAddress(CompactAddress? address, PeerSource source, {PeerType? type, dynamic socket}) {
     if (address == null) return;
     if (IGNORE_IPS.contains(address.address)) return;
     if (address.address == localExternalIP) return;
     if (socket != null) {
       // Indicates that it is an actively connected peer, and currently, only one IP address is allowed to connect at a time.
       if (!_incomingAddress.add(address.address)) {
+        print('Discarding duplicate connection from $address');
         return;
       }
     }
+    _activePeers.removeWhere((p) => p.address == address);
+    _peersAddress.remove(address);
+    //the code above allows reconnections
+
     if (_peersAddress.add(address)) {
       Peer? peer;
       if (type == null || type == PeerType.TCP) {
-        peer = Peer.newTCPPeer(address, _metaInfo.infoHashBuffer,
-            _metaInfo.pieces.length, socket, source);
-      }
-      if (type == null || type == PeerType.UTP) {
-        peer = Peer.newUTPPeer(address, _metaInfo.infoHashBuffer,
-            _metaInfo.pieces.length, socket, source);
+        peer = Peer.newTCPPeer(address, _metaInfo.infoHashBuffer, _metaInfo.pieces.length, socket, source);
+      } else if (type == PeerType.UTP) {
+        peer = Peer.newUTPPeer(address, _metaInfo.infoHashBuffer, _metaInfo.pieces.length, socket, source, client: getGlobalUTPClient());
       }
       if (peer != null) _hookPeer(peer);
     }
@@ -316,16 +313,11 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
 
     if (reconnect) {
       if (_activePeers.length < MAX_ACTIVE_PEERS && !isDisposed) {
-        addNewPeerAddress(
-          disposeEvent.peer.address,
-          disposeEvent.peer.source,
-          type: disposeEvent.peer.type,
-        );
+        addNewPeerAddress(disposeEvent.peer.address, disposeEvent.peer.source, type: disposeEvent.peer.type);
       }
     } else {
       if (disposeEvent.peer.isSeeder && !isDisposed) {
-        addNewPeerAddress(disposeEvent.peer.address, disposeEvent.peer.source,
-            type: disposeEvent.peer.type);
+        addNewPeerAddress(disposeEvent.peer.address, disposeEvent.peer.source, type: disposeEvent.peer.type);
       }
     }
   }
@@ -406,10 +398,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
       var peer = element[0] as Peer;
       var index = element[1] as int;
       if (!peer.isDisposed) {
-        events.emit(PieceRequest(
-          peer,
-          index,
-        ));
+        events.emit(PieceRequest(peer, index));
       }
     }
     _pausedRequest.clear();
@@ -421,8 +410,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
         var begin = element[2];
         var length = element[3];
         if (!peer.isDisposed) {
-          Timer.run(() => _processRemoteRequest(
-              PeerRequestEvent(peer, index, begin, length)));
+          Timer.run(() => _processRemoteRequest(PeerRequestEvent(peer, index, begin, length)));
         }
       }
     });
@@ -476,8 +464,7 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
     //   addNewPeerAddress(address);
     //   return;
     // }
-    if ((options['utp'] != null || options['ut_holepunch'] != null) &&
-        options['reachable'] == null) {
+    if ((options['utp'] != null || options['ut_holepunch'] != null) && options['reachable'] == null) {
       var peer = source as Peer;
       var message = getRendezvousMessage(address);
       peer.sendExtendMessage('ut_holepunch', message);

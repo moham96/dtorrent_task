@@ -16,7 +16,7 @@ import 'package:path/path.dart' as path;
 var scriptDir = path.dirname(Platform.script.path);
 
 void main(List<String> args) async {
-  var infohashString = 'dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c';
+  var infohashString = 'ba71283c3ea4ed449a3a74f6c4a00cec5542985c';
   var metadata = MetadataDownloader(infohashString);
   var metadataListener = metadata.createListener();
   // Metadata download contains a DHT , it will search the peer via DHT,
@@ -28,24 +28,23 @@ void main(List<String> args) async {
 
   // When metadata contents download complete , it will send this event and stop itself:
   metadataListener
-    ..on<MetaDataDownloadProgress>(
-        (event) => print('MetaDataDownload progress: ${event.progress}'))
+    ..on<MetaDataDownloadProgress>((event) => print('MetaDataDownload progress: ${event.progress}'))
     ..on<MetaDataDownloadComplete>((event) async {
       tracker.stop(true);
       var msg = decode(Uint8List.fromList(event.data));
       Map<String, dynamic> torrent = {};
       torrent['info'] = msg;
+
       var torrentModel = parseTorrentFileContent(torrent);
       if (torrentModel != null) {
         print('complete , info : ${torrentModel.name}');
+        print('infohash : ${torrentModel.files.first.name}');
         var startTime = DateTime.now().millisecondsSinceEpoch;
-        var task = TorrentTask.newTask(
-            torrentModel, path.join(scriptDir, '..', 'tmp'));
+        var task = TorrentTask.newTask(torrentModel, r'C:\Users\Felipe\Downloads\');
         EventsListener<TaskEvent> listener = task.createListener();
         listener
           ..on<TaskCompleted>((event) {
-            print(
-                'Complete! spend time : ${((DateTime.now().millisecondsSinceEpoch - startTime) / 60000).toStringAsFixed(2)} minutes');
+            print('Complete! spend time : ${((DateTime.now().millisecondsSinceEpoch - startTime) / 60000).toStringAsFixed(2)} minutes');
 
             task.stop();
           })
@@ -54,18 +53,13 @@ void main(List<String> args) async {
           }))
           ..on<StateFileUpdated>((event) {
             var progress = '${(task.progress * 100).toStringAsFixed(2)}%';
-            var ads =
-                ((task.averageDownloadSpeed) * 1000 / 1024).toStringAsFixed(2);
-            var aps =
-                ((task.averageUploadSpeed) * 1000 / 1024).toStringAsFixed(2);
-            var ds =
-                ((task.currentDownloadSpeed) * 1000 / 1024).toStringAsFixed(2);
+            var ads = ((task.averageDownloadSpeed) * 1000 / 1024).toStringAsFixed(2);
+            var aps = ((task.averageUploadSpeed) * 1000 / 1024).toStringAsFixed(2);
+            var ds = ((task.currentDownloadSpeed) * 1000 / 1024).toStringAsFixed(2);
             var ps = ((task.uploadSpeed) * 1000 / 1024).toStringAsFixed(2);
 
-            var utpDownloadSpeed =
-                ((task.utpDownloadSpeed) * 1000 / 1024).toStringAsFixed(2);
-            var utpUploadSpeed =
-                ((task.utpUploadSpeed) * 1000 / 1024).toStringAsFixed(2);
+            var utpDownloadSpeed = ((task.utpDownloadSpeed) * 1000 / 1024).toStringAsFixed(2);
+            var utpUploadSpeed = ((task.utpUploadSpeed) * 1000 / 1024).toStringAsFixed(2);
             var utpPeerCount = task.utpPeerCount;
 
             var active = task.connectedPeersNumber;

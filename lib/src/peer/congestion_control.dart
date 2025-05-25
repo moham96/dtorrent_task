@@ -15,14 +15,14 @@ const MAX_WINDOW = 1048576;
 const RECORD_TIME = 5000000;
 
 /// The maximum number of requests to be increased in each round is 3.
-const MAX_CWND_INCREASE_REQUESTS_PER_RTT = 3 * 16384;
+const MAX_CWND_INCREASE_REQUESTS_PER_RTT = 20 * 16384;
 
 /// LEDBAT Congestion Control
 ///
 /// Note: All time units are in microseconds
 mixin CongestionControl on EventsEmittable<PeerEvent> {
   // The initial value is 10 seconds.
-  double _rto = 10000000;
+  double _rto = 30000000;
 
   double? _srtt;
 
@@ -62,6 +62,7 @@ mixin CongestionControl on EventsEmittable<PeerEvent> {
     _timeout = Timer(Duration(microseconds: _rto.toInt()), () {
       if (requests.isEmpty) return;
       if (times + 1 >= 5) {
+        print('Timeout reached after $times attempts. Disconnecting peer...');
         timeOutErrorHappen();
         return;
       }
@@ -76,11 +77,12 @@ mixin CongestionControl on EventsEmittable<PeerEvent> {
         first = requests.first;
       }
       for (var request in timeoutR) {
+        print('Resending request: ask ${request[0]}, begin: ${request[1]}');
         orderResendRequest(request[0], request[1], request[2], request[4]);
       }
 
       times++;
-      _rto *= 2;
+      _rto *= 1.5;
       _allowWindowSize = DEFAULT_REQUEST_LENGTH;
       //TODO: remove the need for casting
       events.emit(RequestTimeoutEvent(timeoutR, this as Peer));
@@ -105,9 +107,8 @@ mixin CongestionControl on EventsEmittable<PeerEvent> {
     if (downloaded == 0 || minRtt == null) return;
     var artt = minRtt;
     var delayFactor = (CCONTROL_TARGET - artt) / CCONTROL_TARGET;
-    var windowFactor = downloaded / _allowWindowSize;
-    var scaledGain =
-        MAX_CWND_INCREASE_REQUESTS_PER_RTT * delayFactor * windowFactor;
+    var windowFactor = _allowWindowSize > 0 ? downloaded / _allowWindowSize : 1.0; //downloaded / _allowWindowSize;
+    var scaledGain = MAX_CWND_INCREASE_REQUESTS_PER_RTT * delayFactor * windowFactor;
 
     _allowWindowSize += scaledGain.toInt();
     _allowWindowSize = max(DEFAULT_REQUEST_LENGTH, _allowWindowSize);
