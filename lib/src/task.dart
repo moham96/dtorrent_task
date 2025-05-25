@@ -10,8 +10,7 @@ import 'package:dtorrent_task/src/peer/protocol/peer_events.dart';
 import 'package:dtorrent_task/src/peer/swarm/peers_manager_events.dart';
 import 'package:dtorrent_task/src/piece/piece_base.dart';
 import 'package:dtorrent_task/src/piece/piece_manager_events.dart';
-import 'package:dtorrent_task/src/peer/protocol/peer_events.dart'
-    as peer_events;
+import 'package:dtorrent_task/src/peer/protocol/peer_events.dart' as peer_events;
 import 'package:dtorrent_task/src/piece/sequential_piece_selector.dart';
 import 'package:dtorrent_task/src/task_events.dart';
 import 'package:dtorrent_tracker/dtorrent_tracker.dart';
@@ -29,7 +28,7 @@ import 'piece/piece_manager.dart';
 import 'peer/swarm/peers_manager.dart';
 import 'utils.dart';
 
-const MAX_PEERS = 50;
+const MAX_PEERS = 250;
 const MAX_IN_PEERS = 10;
 
 enum TaskState { running, paused, stopped }
@@ -37,13 +36,8 @@ enum TaskState { running, paused, stopped }
 var _log = Logger('TorrentTask');
 
 abstract class TorrentTask with EventsEmittable<TaskEvent> {
-  factory TorrentTask.newTask(Torrent metaInfo, String savePath,
-      [bool stream = false]) {
-    return _TorrentTask(
-      metaInfo,
-      savePath,
-      stream: stream,
-    );
+  factory TorrentTask.newTask(Torrent metaInfo, String savePath, [bool stream = false]) {
+    return _TorrentTask(metaInfo, savePath, stream: stream);
   }
   void startAnnounceUrl(Uri url, Uint8List infoHash);
   Torrent get metaInfo;
@@ -117,21 +111,13 @@ abstract class TorrentTask with EventsEmittable<TaskEvent> {
   void addDHTNode(Uri uri);
 
   /// Add known Peer addresses.
-  void addPeer(CompactAddress address, PeerSource source,
-      {PeerType? type, Socket socket});
+  void addPeer(CompactAddress address, PeerSource source, {PeerType? type, Socket socket});
 
-  Stream<List<int>>? createStream({
-    int filePosition = 0,
-    int? endPosition,
-    String? fileName,
-  });
+  Stream<List<int>>? createStream({int filePosition = 0, int? endPosition, String? fileName});
 }
 
-class _TorrentTask
-    with EventsEmittable<TaskEvent>
-    implements TorrentTask, AnnounceOptionsProvider {
-  static InternetAddress LOCAL_ADDRESS =
-      InternetAddress.fromRawAddress(Uint8List.fromList([127, 0, 0, 1]));
+class _TorrentTask with EventsEmittable<TaskEvent> implements TorrentTask, AnnounceOptionsProvider {
+  static InternetAddress LOCAL_ADDRESS = InternetAddress.fromRawAddress(Uint8List.fromList([127, 0, 0, 1]));
 
   TorrentAnnounceTracker? _tracker;
 
@@ -176,8 +162,7 @@ class _TorrentTask
 
   final Set<String> _peerIds = {};
 
-  late String
-      _peerId; // This is the generated local peer ID, which is different from the ID used in the Peer class.
+  late String _peerId; // This is the generated local peer ID, which is different from the ID used in the Peer class.
 
   ServerSocket? _serverSocket;
 
@@ -193,8 +178,7 @@ class _TorrentTask
   EventsListener<LSDEvent>? lsdListener;
   EventsListener<DHTEvent>? _dhtListener;
 
-  _TorrentTask(this._metaInfo, this._savePath,
-      {this.maxWriteBufferSize = MAX_WRITE_BUFFER_SIZE, this.stream = false}) {
+  _TorrentTask(this._metaInfo, this._savePath, {this.maxWriteBufferSize = MAX_WRITE_BUFFER_SIZE, this.stream = false}) {
     _peerId = generatePeerId();
   }
 
@@ -243,12 +227,8 @@ class _TorrentTask
     _infoHashString ??= String.fromCharCodes(model.infoHashBuffer);
     _tracker ??= TorrentAnnounceTracker(this);
     _stateFile ??= await StateFile.getStateFile(savePath, model);
-    _pieceManager ??= PieceManager.createPieceManager(
-        stream ? SequentialPieceSelector() : BasePieceSelector(),
-        model,
-        _stateFile!.bitfield);
-    _fileManager ??= await DownloadFileManager.createFileManager(
-        model, savePath, _stateFile!, _pieceManager!.pieces.values.toList());
+    _pieceManager ??= PieceManager.createPieceManager(stream ? SequentialPieceSelector() : BasePieceSelector(), model, _stateFile!.bitfield);
+    _fileManager ??= await DownloadFileManager.createFileManager(model, savePath, _stateFile!, _pieceManager!.pieces.values.toList());
     _peersManager ??= PeersManager(_peerId, model);
 
     return _peersManager!;
@@ -271,25 +251,17 @@ class _TorrentTask
   }
 
   @override
-  Stream<List<int>>? createStream(
-      {int filePosition = 0, int? endPosition, String? fileName}) {
-    if (_fileManager == null ||
-        _peersManager == null ||
-        _pieceManager == null) {
+  Stream<List<int>>? createStream({int filePosition = 0, int? endPosition, String? fileName}) {
+    if (_fileManager == null || _peersManager == null || _pieceManager == null) {
       return null;
     }
     TorrentFile? file;
     if (fileName != null) {
-      file = _fileManager!.metainfo.files
-          .firstWhere((file) => file.name == fileName);
+      file = _fileManager!.metainfo.files.firstWhere((file) => file.name == fileName);
     } else {
-      file = _fileManager!.metainfo.files.firstWhere(
-        (file) => file.name.contains('mp4'),
-        orElse: () => _fileManager!.metainfo.files.first,
-      );
+      file = _fileManager!.metainfo.files.firstWhere((file) => file.name.contains('mp4'), orElse: () => _fileManager!.metainfo.files.first);
     }
-    var localFile = _fileManager?.files.firstWhere(
-        (downloadedFile) => downloadedFile.originalFileName == file?.name);
+    var localFile = _fileManager?.files.firstWhere((downloadedFile) => downloadedFile.originalFileName == file?.name);
 
     if (localFile == null) return null;
     // if no end position provided, read all file
@@ -301,9 +273,11 @@ class _TorrentTask
     var startPieceIndex = offsetStart ~/ metaInfo.pieceLength;
     var endPieceIndex = offsetEnd ~/ metaInfo.pieceLength;
 
-    _pieceManager!.pieceSelector.setPriorityPieces(
-        {for (var i = startPieceIndex; i <= endPieceIndex; i++) i});
-
+    _pieceManager!.pieceSelector.setPriorityPieces({for (var i = startPieceIndex; i <= endPieceIndex; i++) i});
+    // _pieceManager!.pieceSelector.setPriorityPieces(Set.from(List.generate(metaInfo.pieceLength, (int i) {
+    //   // if (i != 0) return i;
+    //   })));
+    // print('metaInfo.pieceLength: ${metaInfo.pieceLength}');
     var stream = localFile.createStream(filePosition, endPosition);
     if (stream == null) return null;
 
@@ -311,15 +285,12 @@ class _TorrentTask
   }
 
   @override
-  void addPeer(CompactAddress address, PeerSource source,
-      {PeerType? type, Socket? socket}) {
-    _peersManager?.addNewPeerAddress(address, source,
-        type: type, socket: socket);
+  void addPeer(CompactAddress address, PeerSource source, {PeerType? type, Socket? socket}) {
+    _peersManager?.addNewPeerAddress(address, source, type: type, socket: socket);
   }
 
   void _whenTaskDownloadComplete() async {
-    await _peersManager
-        ?.disposeAllSeeder('Download complete,disconnect seeder');
+    await _peersManager?.disposeAllSeeder('Download complete,disconnect seeder');
     await _tracker?.complete();
     events.emit(TaskCompleted());
   }
@@ -329,8 +300,12 @@ class _TorrentTask
   }
 
   void _processTrackerPeerEvent(AnnouncePeerEventEvent event) {
-    if (event.event == null) return;
+    if (event.event == null) {
+      print('No peer event received from tracker');
+      return;
+    }
     var ps = event.event!.peers;
+    print('Tracker returned ${ps.length} peers: $ps');
     if (ps.isNotEmpty) {
       for (var url in ps) {
         _processNewPeerFound(url, PeerSource.tracker);
@@ -343,16 +318,12 @@ class _TorrentTask
   }
 
   void _processNewPeerFound(CompactAddress url, PeerSource source) {
-    _log.info(
-      "Add new peer ${url.toString()} from ${source.name} to peersManager",
-    );
+    _log.info("Add new peer ${url.toString()} from ${source.name} to peersManager");
     _peersManager?.addNewPeerAddress(url, source);
   }
 
   void _processDHTPeer(CompactAddress peer, String infoHash) {
-    _log.fine(
-      "Got new peer from $peer DHT for infohash: ${Uint8List.fromList(infoHash.codeUnits).toHexString()}",
-    );
+    _log.fine("Got new peer from $peer DHT for infohash: ${Uint8List.fromList(infoHash.codeUnits).toHexString()}");
     if (infoHash == _infoHashString) {
       _processNewPeerFound(peer, PeerSource.dht);
     }
@@ -363,18 +334,18 @@ class _TorrentTask
       socket.close();
       return;
     }
-    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    // if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.remoteAddress)) {
       socket.close();
       return;
     }
-    _log.info(
-      'incoming connect: ${socket.remoteAddress.address}:${socket.remotePort}',
-    );
+    _log.info('incoming connect: ${socket.remoteAddress.address}:${socket.remotePort}');
     _peersManager?.addNewPeerAddress(
-        CompactAddress(socket.remoteAddress, socket.remotePort),
-        PeerSource.incoming,
-        type: PeerType.UTP,
-        socket: socket);
+      CompactAddress(socket.remoteAddress, socket.remotePort),
+      PeerSource.incoming,
+      type: PeerType.UTP,
+      socket: socket,
+    );
   }
 
   void _hookInPeer(Socket socket) {
@@ -382,18 +353,18 @@ class _TorrentTask
       socket.close();
       return;
     }
-    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    // if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.remoteAddress)) {
       socket.close();
       return;
     }
-    _log.info(
-      'incoming connect: ${socket.remoteAddress.address}:${socket.remotePort}',
-    );
+    _log.info('incoming connect: ${socket.remoteAddress.address}:${socket.remotePort}');
     _peersManager?.addNewPeerAddress(
-        CompactAddress(socket.remoteAddress, socket.remotePort),
-        PeerSource.incoming,
-        type: PeerType.TCP,
-        socket: socket);
+      CompactAddress(socket.remoteAddress, socket.remotePort),
+      PeerSource.incoming,
+      type: PeerType.TCP,
+      socket: socket,
+    );
   }
 
   @override
@@ -420,11 +391,13 @@ class _TorrentTask
   Future<Map> start() async {
     state = TaskState.running;
     // Incoming peer:
-    _serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    //_serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    // SNG hoping this helps: (was 0) Recommend: 6881-6889
+    // canceling download not releasting this port?  I had to add shared: true
+    _serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, 6881, shared: true);
     await _init(_metaInfo, _savePath);
     _serverSocketListener = _serverSocket?.listen(_hookInPeer);
-    _utpServer ??= await ServerUTPSocket.bind(
-        InternetAddress.anyIPv4, _serverSocket?.port ?? 0);
+    _utpServer ??= await ServerUTPSocket.bind(InternetAddress.anyIPv4, _serverSocket?.port ?? 0);
     _utpServer?.listen(_hookUTP);
 
     var map = {};
@@ -455,15 +428,12 @@ class _TorrentTask
       ..on<PeerHaveNone>(_processHaveNone)
       ..on<PeerChokeChanged>(_processChokeChange)
       ..on<PeerHaveEvent>(_processHaveUpdate)
-      ..on<RequestTimeoutEvent>(
-          (event) => _processRequestTimeout(event.peer, event.requests))
-      ..on<UpdateUploaded>(
-          (event) => _fileManager?.updateUpload(event.uploaded));
+      ..on<RequestTimeoutEvent>((event) => _processRequestTimeout(event.peer, event.requests))
+      ..on<UpdateUploaded>((event) => _fileManager?.updateUpload(event.uploaded));
     fileManagerListener
       ?..on<DownloadManagerFileCompleted>(_whenFileDownloadComplete)
       ..on<StateFileUpdated>((event) => events.emit(StateFileUpdated()))
-      ..on<SubPieceReadCompleted>((event) => _peersManager
-          ?.readSubPieceComplete(event.pieceIndex, event.begin, event.block));
+      ..on<SubPieceReadCompleted>((event) => _peersManager?.readSubPieceComplete(event.pieceIndex, event.begin, event.block));
     pieceManagerListener
       ?..on<PieceAccepted>((event) => processPieceAccepted(event.pieceIndex))
       ..on<PieceRejected>((event) => null);
@@ -471,46 +441,54 @@ class _TorrentTask
     _lsd?.port = _serverSocket?.port;
     _lsd?.start();
     _dhtListener = _dht?.createListener();
-    _dhtListener?.on<NewPeerEvent>(
-        (event) => _processDHTPeer(event.address, event.infoHash));
-    _dht?.announce(
-        String.fromCharCodes(_metaInfo.infoHashBuffer), _serverSocket!.port);
+    _dhtListener?.on<NewPeerEvent>((event) => _processDHTPeer(event.address, event.infoHash));
+    _dht?.announce(String.fromCharCodes(_metaInfo.infoHashBuffer), _serverSocket!.port);
 
     _dht?.bootstrap();
 
     if (_fileManager != null && _fileManager!.isAllComplete) {
       _tracker?.complete();
     } else {
-      _tracker?.runTrackers(_metaInfo.announces, _metaInfo.infoHashBuffer,
-          event: EVENT_STARTED);
+      _tracker?.runTrackers(_metaInfo.announces, _metaInfo.infoHashBuffer, event: EVENT_STARTED);
     }
     events.emit(TaskStarted());
+
     return map;
   }
 
   void processPieceRejected(int index) {
     var piece = _pieceManager?[index];
+    print('Rejected chunk: $index');
     if (piece == null) return;
 
-    // TODO: still need optimizing for last pieces
-    for (var peer in piece.availablePeers) {
-      requestPieces(peer, piece.index);
+    // Optimization for the last pieces
+    final totalPieces = _pieceManager?.pieces.length ?? 0;
+    final lastPiecesCount = 5;
+    final isLastPiece = index >= totalPieces - lastPiecesCount;
+
+    if (isLastPiece && piece.availablePeers.isNotEmpty) {
+      // For the last few pieces, try with just one random peer
+      final randomPeer = (piece.availablePeers.toList()..shuffle()).first;
+      requestPieces(randomPeer, piece.index);
+    } else {
+      // For the rest, keep the current behavior
+      for (var peer in piece.availablePeers) {
+        requestPieces(peer, piece.index);
+      }
     }
   }
 
   Future<void> processPieceAccepted(int index) async {
     var piece = _pieceManager?[index];
+    // if (piece == null || piece.block == null || _fileManager == null || _pieceManager == null) return;
     if (piece == null || _fileManager == null || _pieceManager == null) return;
 
     var block = piece.flush();
     if (block == null) return;
 
     if (_fileManager!.localHave(index)) return;
-    var written = await _fileManager!.writeFile(
-      index,
-      0,
-      block,
-    );
+    var written = await _fileManager!.writeFile(index, 0, block);
+    print('written piece: ${piece.index.toString()}');
 
     if (!written) return;
     _pieceManager!.processPieceWriteComplete(index);
@@ -567,10 +545,13 @@ class _TorrentTask
     for (var element in requests) {
       var pieceIndex = element[0];
       var begin = element[1];
-      // TODO This is dangerous here. Currently, we are dividing a piece into 16 KB chunks. What if it's not the case?
       var piece = _pieceManager![pieceIndex];
-      var subindex = begin ~/ DEFAULT_REQUEST_LENGTH;
-      piece?.pushSubPiece(subindex);
+      if (piece == null) continue;
+
+      int subPieceSize = piece.subPieceSize;
+      int subIndex = begin ~/ subPieceSize;
+
+      piece.pushSubPiece(subIndex);
     }
   }
 
@@ -583,19 +564,19 @@ class _TorrentTask
       var blockStart = piece.offset + event.begin;
       var blockEnd = blockStart + event.block.length;
       if (blockEnd > piece.end) {
-        _log.info('Error:', 'Piece overlaps with next piece');
+        print('Error: Piece overlaps with next piece');
         // will request the same piece below
       } else {
         if (!piece.isCompleted) {
-          pieceManager?.processReceivedBlock(
-              event.index, event.begin, event.block);
+          pieceManager?.processReceivedBlock(event.index, event.begin, event.block);
         }
         // request available subpiece
         if (piece.haveAvailableSubPiece()) i = -1;
       }
     }
 
-    Timer.run(() => requestPieces(event.peer, i));
+    // Timer.run(() => requestPieces(event.peer, i));
+    requestPieces(event.peer, i);
   }
 
   void _processPeerHandshake(PeerHandshakeEvent event) {
@@ -604,15 +585,12 @@ class _TorrentTask
   }
 
   void _processPeerRequest(PeerRequestEvent event) {
-    if (_fileManager == null ||
-        _peersManager == null ||
-        _peersManager!.isPaused) return;
+    if (_fileManager == null || _peersManager == null || _peersManager!.isPaused) return;
     _fileManager!.readFile(event.index, event.begin, event.length);
   }
 
   void _processHaveAll(PeerHaveAll event) {
-    _processBitfieldUpdate(
-        PeerBitfieldEvent(event.peer, event.peer.remoteBitfield));
+    _processBitfieldUpdate(PeerBitfieldEvent(event.peer, event.peer.remoteBitfield));
   }
 
   void _processHaveNone(PeerHaveNone event) {
@@ -624,15 +602,14 @@ class _TorrentTask
     if (bitfieldEvent.bitfield != null) {
       if (bitfieldEvent.peer.interestedRemote) return;
       if (_fileManager!.isAllComplete && bitfieldEvent.peer.isSeeder) {
-        bitfieldEvent.peer.dispose(BadException(
-            "Do not connect to Seeder if the download is already completed"));
+        bitfieldEvent.peer.dispose(BadException("Do not connect to Seeder if the download is already completed"));
         return;
       }
       for (var i = 0; i < _fileManager!.piecesNumber; i++) {
         if (bitfieldEvent.bitfield!.getBit(i)) {
-          if (!bitfieldEvent.peer.interestedRemote &&
-              !_fileManager!.localHave(i)) {
+          if (!bitfieldEvent.peer.interestedRemote && !_fileManager!.localHave(i)) {
             bitfieldEvent.peer.sendInterested(true);
+            print('Peer ${bitfieldEvent.peer.id} interested in piece $i');
             return;
           }
         }
@@ -662,7 +639,8 @@ class _TorrentTask
     }
     if (canRequest && event.peer.isSleeping) {
       // peer doesn't have requests, so we can request
-      Timer.run(() => requestPieces(event.peer));
+      //Timer.run(() => requestPieces(event.peer));
+      requestPieces(event.peer);
     }
   }
 
@@ -675,7 +653,8 @@ class _TorrentTask
         _pieceManager![index]?.addAvailablePeer(event.peer);
       }
       // Start requesting
-      Timer.run(() => requestPieces(event.peer));
+      // Timer.run(() => requestPieces(event.peer));
+      requestPieces(event.peer);
     } else {
       var completedPieces = event.peer.remoteCompletePieces;
       for (var index in completedPieces) {
@@ -703,47 +682,56 @@ class _TorrentTask
       for (var p in _peersManager!.activePeers) {
         if (p != peer && p.isSleeping) {
           // TODO: should we request from all peers ?
-          Timer.run(() => requestPieces(p));
+          //Timer.run(() => requestPieces(p));
+          requestPieces(p);
         }
       }
     }
   }
 
   void requestPieces(Peer peer, [int pieceIndex = -1]) async {
-    if (_pieceManager == null || _peersManager == null) return;
+    if (_pieceManager == null || _peersManager == null) {
+      print('Error: pieceManager or peersManager not initialized');
+      return;
+    }
     if (_peersManager!.addPausedRequest(peer, pieceIndex)) return;
-    Piece? piece;
-    if (pieceIndex != -1) {
-      // a specific piece requested
-      piece = _pieceManager![pieceIndex];
-      // if the piece is available but doesn't have available subpiece,
-      // select a different subpiece
-      if (piece != null && !piece.haveAvailableSubPiece()) {
-        piece = _pieceManager!
-            .selectPiece(peer, _pieceManager!, peer.remoteSuggestPieces);
+
+    int maxRequests = peer.currentWindow; //peer.currentWindow > 0 ? peer.currentWindow : 10; // ou defina um valor fixo, ex: 5
+    int requests = 0;
+
+    while (requests < maxRequests) {
+      Piece? piece;
+      if (pieceIndex != -1) {
+        //print('REQUESTING THE PIECE: $pieceIndex');
+        piece = _pieceManager![pieceIndex];
+        if (piece != null && !piece.haveAvailableSubPiece()) {
+          piece = _pieceManager!.selectPiece(peer, _pieceManager!, peer.remoteSuggestPieces);
+        }
+      } else {
+        piece = _pieceManager!.selectPiece(peer, _pieceManager!, peer.remoteSuggestPieces);
       }
-    } else {
-      // no specific piece requested, select one
-      piece = _pieceManager!
-          .selectPiece(peer, _pieceManager!, peer.remoteSuggestPieces);
-    }
+      if (piece == null) {
+        print('No parts available for peer ${peer.address}');
+        break;
+      }
 
-    // at this point we have a piece that we know is:
-    // - available in the peer
-    // - have subPieces
-    if (piece == null) return;
-
-    var subIndex = piece.popSubPiece();
-    if (subIndex == null) return;
-    var size = DEFAULT_REQUEST_LENGTH; // Block size is calculated dynamically.
-    var begin = subIndex * size;
-    if ((begin + size) > piece.byteLength) {
-      size = piece.byteLength - begin;
-    }
-    if (!peer.sendRequest(piece.index, begin, size)) {
-      piece.pushSubPiece(subIndex);
-    } else {
-      Timer.run(() => requestPieces(peer, pieceIndex));
+      var subIndex = piece.popSubPiece();
+      if (subIndex == null) {
+        print('No sub-piece available for part ${piece.index}');
+        break;
+      }
+      var size = DEFAULT_REQUEST_LENGTH;
+      var begin = subIndex * size;
+      if ((begin + size) > piece.byteLength) {
+        size = piece.byteLength - begin;
+      }
+      print('Requesting part ${piece.index}, begin: $begin, size: $size');
+      if (!peer.sendRequest(piece.index, begin, size)) {
+        piece.pushSubPiece(subIndex);
+        print('Failed to request part ${piece.index} from peer ${peer.address}');
+        break;
+      }
+      requests++;
     }
   }
 
@@ -800,7 +788,7 @@ class _TorrentTask
       'numwant': 50,
       'compact': 1,
       'peerId': _peerId,
-      'port': _serverSocket?.port
+      'port': _serverSocket?.port,
     };
     return Future.value(map);
   }
@@ -855,14 +843,14 @@ class _TorrentTask
     return _peersManager!.utpDownloadSpeed;
   }
 
-// TODO debug:
+  // TODO debug:
   @override
   double get utpUploadSpeed {
     if (_peersManager == null) return 0.0;
     return _peersManager!.utpUploadSpeed;
   }
 
-// TODO debug:
+  // TODO debug:
   @override
   int get utpPeerCount {
     if (_peersManager == null) return 0;

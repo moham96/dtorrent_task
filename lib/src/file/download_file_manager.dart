@@ -29,16 +29,11 @@ class DownloadFileManager with EventsEmittable<DownloadFileManagerEvent> {
   final StateFile _stateFile;
 
   /// TODO: File read caching
-  DownloadFileManager(
-    this.metainfo,
-    this._stateFile,
-    this._pieces,
-  ) {
+  DownloadFileManager(this.metainfo, this._stateFile, this._pieces) {
     _piece2fileMap = List.filled(_stateFile.bitfield.piecesNum, null);
   }
 
-  static Future<DownloadFileManager> createFileManager(Torrent metainfo,
-      String localDirectory, StateFile stateFile, List<Piece> pieces) {
+  static Future<DownloadFileManager> createFileManager(Torrent metainfo, String localDirectory, StateFile stateFile, List<Piece> pieces) {
     var manager = DownloadFileManager(metainfo, stateFile, pieces);
     // manager._totalDownloaded = stateFile.downloaded;
     return manager._init(localDirectory);
@@ -60,8 +55,7 @@ class DownloadFileManager with EventsEmittable<DownloadFileManagerEvent> {
   }
 
   bool get isAllComplete {
-    return _stateFile.bitfield.piecesNum ==
-        _stateFile.bitfield.completedPieces.length;
+    return _stateFile.bitfield.piecesNum == _stateFile.bitfield.completedPieces.length;
   }
 
   int get piecesNumber => _stateFile.bitfield.piecesNum;
@@ -102,16 +96,15 @@ class DownloadFileManager with EventsEmittable<DownloadFileManagerEvent> {
         if (pieces == null) continue;
         if (flushed.add(file.filePath)) {
           await file.requestFlush();
-        }
-        if (file.completelyFlushed) {
-          //TODO: is this check enough ?
-          events.emit(DownloadManagerFileCompleted(file));
+          // Emit only once per file
+          if (file.completelyFlushed) {
+            events.emit(DownloadManagerFileCompleted(file));
+          }
         }
       }
     }
     events.emit(StateFileUpdated());
-    var msg =
-        'downloaded：${d / (1024 * 1024)} mb , Progress ${((d / metainfo.length) * 10000).toInt() / 100} %';
+    var msg = 'downloaded：${d / (1024 * 1024)} mb , Progress ${((d / metainfo.length) * 10000).toInt() / 100} %';
     _log.finer(msg);
     return true;
   }
@@ -128,8 +121,7 @@ class DownloadFileManager with EventsEmittable<DownloadFileManagerEvent> {
         pieces = <Piece>[];
         _file2pieceMap[file.path] = pieces;
       }
-      var downloadFile = DownloadFile(
-          directory + file.path, file.offset, file.length, file.path, pieces);
+      var downloadFile = DownloadFile(directory + file.path, file.offset, file.length, file.path, pieces);
 
       for (var pieceIndex = startPiece; pieceIndex <= endPiece; pieceIndex++) {
         var downloadFileList = _piece2fileMap?[pieceIndex];
@@ -156,11 +148,9 @@ class DownloadFileManager with EventsEmittable<DownloadFileManagerEvent> {
     for (var i = 0; i < files.length; i++) {
       var tempFile = files[i];
 
-      var re =
-          blockToDownloadFilePosition(startByte, endByte, length, tempFile);
+      var re = blockToDownloadFilePosition(startByte, endByte, length, tempFile);
       if (re == null) continue;
-      futures
-          .add(tempFile.requestRead(re.position, re.blockEnd - re.blockStart));
+      futures.add(tempFile.requestRead(re.position, re.blockEnd - re.blockStart));
     }
     var blocks = await Future.wait(futures);
     var block = blocks.fold<List<int>>(<int>[], (previousValue, element) {
@@ -191,11 +181,9 @@ class DownloadFileManager with EventsEmittable<DownloadFileManagerEvent> {
     var futures = <Future<bool>>[];
     for (var i = 0; i < tempFiles.length; i++) {
       var tempFile = tempFiles[i];
-      var re =
-          blockToDownloadFilePosition(startByte, endByte, blockSize, tempFile);
+      var re = blockToDownloadFilePosition(startByte, endByte, blockSize, tempFile);
       if (re == null) continue;
-      futures.add(tempFile.requestWrite(
-          re.position, block, re.blockStart, re.blockEnd));
+      futures.add(tempFile.requestWrite(re.position, block, re.blockStart, re.blockEnd));
     }
     var written = await Stream.fromFutures(futures).fold<bool>(true, (p, a) {
       return p && a;

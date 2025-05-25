@@ -22,8 +22,7 @@ class BasePieceSelector implements PieceSelector {
   }
 
   @override
-  Piece? selectPiece(Peer peer, PieceProvider provider,
-      [bool random = false, Set<int>? suggestPieces]) {
+  Piece? selectPiece(Peer peer, PieceProvider provider, [bool random = false, Set<int>? suggestPieces]) {
     // Prioritize downloading Suggest Pieces.
     if (suggestPieces != null && suggestPieces.isNotEmpty) {
       for (var i = 0; i < suggestPieces.length; i++) {
@@ -57,10 +56,7 @@ class BasePieceSelector implements PieceSelector {
     int? startIndex;
     for (var i = 0; i < candidatePieces.length; i++) {
       var p = provider[candidatePieces[i]];
-      if (p != null &&
-          !p.isCompleted &&
-          p.haveAvailableSubPiece() &&
-          p.containsAvailablePeer(peer)) {
+      if (p != null && !p.isCompleted && p.haveAvailableSubPiece() && p.containsAvailablePeer(peer)) {
         a = p;
         startIndex = i;
         break;
@@ -70,9 +66,7 @@ class BasePieceSelector implements PieceSelector {
     maxList.add(a!);
     for (var i = startIndex; i < candidatePieces.length; i++) {
       var p = provider[candidatePieces[i]];
-      if (p == null ||
-          !p.haveAvailableSubPiece() ||
-          !p.containsAvailablePeer(peer)) {
+      if (p == null || !p.haveAvailableSubPiece() || !p.containsAvailablePeer(peer)) {
         continue;
       }
       // Select rare pieces

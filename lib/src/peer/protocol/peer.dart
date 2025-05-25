@@ -23,28 +23,7 @@ const MESSAGE_INTEGER = 4;
 
 // This is the length of the handshake message which consist of
 // 20 bytes for the header
-const HAND_SHAKE_HEAD = [
-  19,
-  66,
-  105,
-  116,
-  84,
-  111,
-  114,
-  114,
-  101,
-  110,
-  116,
-  32,
-  112,
-  114,
-  111,
-  116,
-  111,
-  99,
-  111,
-  108
-];
+const HAND_SHAKE_HEAD = [19, 66, 105, 116, 84, 111, 114, 114, 101, 110, 116, 32, 112, 114, 111, 116, 111, 99, 111, 108];
 // 8 reserved bytes
 const RESERVED = [0, 0, 0, 0, 0, 0, 0, 0];
 // 20 bytes for the infohash
@@ -80,12 +59,7 @@ const DEFAULT_CONNECT_TIMEOUT = 30;
 
 enum PeerSource { tracker, dht, pex, lsd, incoming, manual, holepunch }
 
-abstract class Peer
-    with
-        EventsEmittable<PeerEvent>,
-        ExtendedProcessor,
-        CongestionControl,
-        SpeedCalculator {
+abstract class Peer with EventsEmittable<PeerEvent>, ExtendedProcessor, CongestionControl, SpeedCalculator {
   late final Logger _log = Logger(runtimeType.toString());
 
   /// Countdown time , when peer don't receive or send any message from/to remote ,
@@ -191,26 +165,42 @@ abstract class Peer
   /// [Fast Extension (BEP 0006)](http://www.bittorrent.org/beps/bep_0006.html).
   /// [localEnableExtended] indicates whether local peers can use the
   /// [Extension Protocol](http://www.bittorrent.org/beps/bep_0010.html).
-  Peer(this.address, this._infoHashBuffer, this._piecesNum, this.source,
-      {this.type = PeerType.TCP,
-      this.localEnableFastPeer = true,
-      this.localEnableExtended = true,
-      this.reqq = 100}) {
+  Peer(
+    this.address,
+    this._infoHashBuffer,
+    this._piecesNum,
+    this.source, {
+    this.type = PeerType.TCP,
+    this.localEnableFastPeer = true,
+    this.localEnableExtended = true,
+    this.reqq = 100,
+  }) {
     _remoteBitfield = Bitfield.createEmptyBitfield(_piecesNum);
   }
 
-  factory Peer.newTCPPeer(CompactAddress address, List<int> infoHashBuffer,
-      int piecesNum, Socket? socket, PeerSource source,
-      {bool enableExtend = true, bool enableFast = true}) {
-    return _TCPPeer(address, infoHashBuffer, piecesNum, socket, source,
-        enableExtend: enableExtend, enableFast: enableFast);
+  factory Peer.newTCPPeer(
+    CompactAddress address,
+    List<int> infoHashBuffer,
+    int piecesNum,
+    Socket? socket,
+    PeerSource source, {
+    bool enableExtend = true,
+    bool enableFast = true,
+  }) {
+    return _TCPPeer(address, infoHashBuffer, piecesNum, socket, source, enableExtend: enableExtend, enableFast: enableFast);
   }
 
-  factory Peer.newUTPPeer(CompactAddress address, List<int> infoHashBuffer,
-      int piecesNum, UTPSocket? socket, PeerSource source,
-      {bool enableExtend = true, bool enableFast = true}) {
-    return _UTPPeer(address, infoHashBuffer, piecesNum, socket, source,
-        enableExtend: enableExtend, enableFast: enableFast);
+  factory Peer.newUTPPeer(
+    CompactAddress address,
+    List<int> infoHashBuffer,
+    int piecesNum,
+    UTPSocket? socket,
+    PeerSource source, {
+    required UTPSocketClient client,
+    bool enableExtend = true,
+    bool enableFast = true,
+  }) {
+    return _UTPPeer(address, infoHashBuffer, piecesNum, socket, source, client, enableExtend: enableExtend, enableFast: enableFast);
   }
 
   /// The remote peer's bitfield.
@@ -274,13 +264,17 @@ abstract class Peer
       _init();
       var stream = await connectRemote(timeout);
       startSpeedCalculator();
-      _streamChunk = stream?.listen(_processReceiveData, onDone: () {
-        _log.info('Connection is closed $address');
-        dispose(BadException('The remote peer closed the connection'));
-      }, onError: (e) {
-        _log.warning('Error happen: $address', e);
-        dispose(e);
-      });
+      _streamChunk = stream?.listen(
+        _processReceiveData,
+        onDone: () {
+          _log.info('Connection is closed $address');
+          dispose(BadException('The remote peer closed the connection'));
+        },
+        onError: (e) {
+          _log.warning('Error happen: $address', e);
+          dispose(e);
+        },
+      );
       events.emit(PeerConnected(this));
     } catch (e) {
       if (e is TCPConnectException) return dispose(e);
@@ -331,8 +325,7 @@ abstract class Peer
     // maxCount = oldCount;
     if (remoteReqq != null) maxCount = min(remoteReqq!, maxCount);
     if (_requestBuffer.length >= maxCount) return false;
-    _requestBuffer
-        .add([index, begin, length, DateTime.now().microsecondsSinceEpoch, 0]);
+    _requestBuffer.add([index, begin, length, DateTime.now().microsecondsSinceEpoch, 0]);
     return true;
   }
 
@@ -354,14 +347,14 @@ abstract class Peer
 
     if (_cacheBuffer.isEmpty) return;
     // Check if it's a handshake header.
-    if (_cacheBuffer[0] == 19 &&
-        _cacheBuffer.length >= HAND_SHAKE_MESSAGE_LENGTH) {
+    if (_cacheBuffer[0] == 19 && _cacheBuffer.length >= HAND_SHAKE_MESSAGE_LENGTH) {
       if (_isHandShakeHead(_cacheBuffer)) {
         if (_validateInfoHash(_cacheBuffer)) {
           var handshakeBuffer = Uint8List(HAND_SHAKE_MESSAGE_LENGTH);
           handshakeBuffer.setRange(0, HAND_SHAKE_MESSAGE_LENGTH, _cacheBuffer);
           // clear the buffer to only the handshake
           _cacheBuffer = _cacheBuffer.sublist(HAND_SHAKE_MESSAGE_LENGTH);
+
           Timer.run(() => _processHandShake(handshakeBuffer));
           if (_cacheBuffer.isNotEmpty) {
             Timer.run(() => _processReceiveData(Uint8List(0)));
@@ -393,12 +386,7 @@ abstract class Peer
           // the message type id is not needed anymore
           var messageBuffer = Uint8List(length - 1);
 
-          messageBuffer.setRange(
-            0,
-            messageBuffer.length,
-            _cacheBuffer,
-            start + MESSAGE_INTEGER + 1,
-          );
+          messageBuffer.setRange(0, messageBuffer.length, _cacheBuffer, start + MESSAGE_INTEGER + 1);
 
           switch (id) {
             case ID_PIECE:
@@ -593,7 +581,7 @@ abstract class Peer
 
   void _processHaveAll() {
     if (!remoteEnableFastPeer) {
-      dispose('Remote disabled fast extension but receive \'have all\'');
+      print('Remote disabled fast extension but receive \'have all\'');
       return;
     }
     if (_remoteBitfield == null) return;
@@ -605,13 +593,13 @@ abstract class Peer
     for (var i = index; i < _remoteBitfield!.piecesNum; i++) {
       _remoteBitfield?.setBit(i, true);
     }
-
+    print('Peer $address sent HAVE ALL and became a seeder!');
     events.emit(PeerHaveAll(this));
   }
 
   void _processHaveNone() {
     if (!remoteEnableFastPeer) {
-      dispose('Remote disabled fast extension but receive \'have none\'');
+      print('Remote disabled fast extension but receive \'have none\'');
       return;
     }
     _remoteBitfield = Bitfield.createEmptyBitfield(_piecesNum);
@@ -623,7 +611,7 @@ abstract class Peer
   /// the peer MUST close the connection.
   void _processSuggestPiece(Uint8List message) {
     if (!remoteEnableFastPeer) {
-      dispose('Remote disabled fast extension but receive \'suggest piece\'');
+      print('Remote disabled fast extension but receive \'suggest piece\'');
       return;
     }
     var view = ByteData.view(message.buffer);
@@ -635,7 +623,7 @@ abstract class Peer
 
   void _processRejectRequest(Uint8List message) {
     if (!remoteEnableFastPeer) {
-      dispose('Remote disabled fast extension but receive \'reject request\'');
+      print('Remote disabled fast extension but receive \'reject request\'');
       return;
     }
 
@@ -655,7 +643,7 @@ abstract class Peer
 
   void _processAllowFast(Uint8List message) {
     if (!remoteEnableFastPeer) {
-      dispose('Remote disabled fast extension but receive \'allow fast\'');
+      print('Remote disabled fast extension but receive \'allow fast\'');
       return;
     }
     var view = ByteData.view(message.buffer);
@@ -684,8 +672,7 @@ abstract class Peer
     var length = view.getUint32(8);
     if (length > MAX_REQUEST_LENGTH) {
       _log.warning('TOO LARGE BLOCK', 'BLOCK $length');
-      dispose(BadException(
-          '$address : request block length larger than limit : $length > $MAX_REQUEST_LENGTH'));
+      dispose(BadException('$address : request block length larger than limit : $length > $MAX_REQUEST_LENGTH'));
       return;
     }
     if (chokeRemote) {
@@ -727,8 +714,7 @@ abstract class Peer
       var block = Uint8List(blockLength);
       block.setRange(0, blockLength, message, MESSAGE_INTEGER * 2);
       requests.add(request);
-      _log.fine(
-          'Received request for Piece ($index, $begin) content, downloaded $downloaded bytes from the current Peer $type $address');
+      _log.fine('Received request for Piece ($index, $begin) content, downloaded $downloaded bytes from the current Peer $type $address');
       events.emit(PeerPieceEvent(this, index, begin, block));
     }
     messages.clear();
@@ -744,18 +730,29 @@ abstract class Peer
       indices.add(index);
       updateRemoteBitfield(index, true);
     }
+
     events.emit(PeerHaveEvent(this, indices));
   }
 
   /// Update the remote peer's bitfield.
   void updateRemoteBitfield(int index, bool have) {
     _remoteBitfield?.setBit(index, have);
+    if (isSeeder) {
+      print('Peer $address became a seeder after HAVE!');
+    }
   }
 
   void initRemoteBitfield(Uint8List bitfield) {
+    print('Peer $address init remote bitfield: ${bitfield.length} bytes');
+
     _remoteBitfield = Bitfield(_piecesNum, bitfield);
     // Bitfield.copyFrom(_piecesNum, bitfield, 1);
-    events.emit(PeerBitfieldEvent(this, _remoteBitfield));
+    if (isSeeder) {
+      print('Peer $address identified as seeder!');
+    } else {
+      print('Peer $address is NOT a seeder.');
+      events.emit(PeerBitfieldEvent(this, _remoteBitfield));
+    }
   }
 
   void _processHandShake(List<int> data) {
@@ -777,8 +774,7 @@ abstract class Peer
   }
 
   String _parseRemotePeerId(List<int> data) {
-    return String.fromCharCodes(
-        data.sublist(PEER_ID_START, HAND_SHAKE_MESSAGE_LENGTH));
+    return String.fromCharCodes(data.sublist(PEER_ID_START, HAND_SHAKE_MESSAGE_LENGTH));
   }
 
   /// Connect remote peer and return a [Stream] future
@@ -925,9 +921,9 @@ abstract class Peer
   /// - [length]: integer specifying the requested length.
   /// - [timeout]: when send request to remote , after [timeout] of not getting response,
   /// it will fire [requestTimeout] event
-  bool sendRequest(int index, int begin,
-      [int length = DEFAULT_REQUEST_LENGTH]) {
+  bool sendRequest(int index, int begin, [int length = DEFAULT_REQUEST_LENGTH]) {
     if (_chokeMe) {
+      print('Peer $address is choking me, cannot send request for Piece ($index, $begin, $length)');
       if (!remoteEnableFastPeer || !_remoteAllowFastPieces.contains(index)) {
         return false;
       }
@@ -965,13 +961,7 @@ abstract class Peer
 
   @override
   void orderResendRequest(int index, int begin, int length, int resend) {
-    _requestBuffer.add([
-      index,
-      begin,
-      length,
-      DateTime.now().microsecondsSinceEpoch,
-      resend + 1
-    ]);
+    _requestBuffer.add([index, begin, length, DateTime.now().microsecondsSinceEpoch, resend + 1]);
   }
 
   /// `bitfield: <len=0001+X><id=5><bitfield>`
@@ -1041,6 +1031,7 @@ abstract class Peer
     interestedRemote = iamInterested;
     var id = ID_INTERESTED;
     if (!iamInterested) id = ID_NOT_INTERESTED;
+    print('iam interested: $iamInterested, send id: $id to remote peer $address');
     sendMessage(id);
   }
 
@@ -1089,16 +1080,7 @@ abstract class Peer
   /// BEP 0006
   /// `*Suggest Piece*: <len=0x0005><op=0x0D><index>`
   ///
-  /// `Suggest Piece` is an advisory message meaning "you might like to download this piece."
-  /// The intended usage is for 'super-seeding' without throughput reduction, to avoid redundant
-  /// downloads, and so that a seed which is disk I/O bound can upload contiguous or identical
-  /// pieces to avoid excessive disk seeks.
-  ///
-  /// In all cases, the seed SHOULD operate to maintain a roughly equal number of copies of each
-  /// piece in the network. A peer MAY send more than one suggest piece message at any given time.
-  /// A peer receiving multiple suggest piece messages MAY interpret this as meaning that all of
-  /// the suggested pieces are equally appropriate.
-  ///
+  /// `.
   void sendSuggestPiece(int index) {
     if (remoteEnableFastPeer && localEnableFastPeer) {
       var bytes = Uint8List(4);
@@ -1212,20 +1194,21 @@ class TCPConnectException implements Exception {
 
 class _TCPPeer extends Peer {
   Socket? _socket;
-  _TCPPeer(CompactAddress address, List<int> infoHashBuffer, int piecesNum,
-      this._socket, PeerSource source,
-      {bool enableExtend = true, bool enableFast = true})
-      : super(address, infoHashBuffer, piecesNum, source,
-            type: PeerType.TCP,
-            localEnableExtended: enableExtend,
-            localEnableFastPeer: enableFast);
+  _TCPPeer(
+    CompactAddress address,
+    List<int> infoHashBuffer,
+    int piecesNum,
+    this._socket,
+    PeerSource source, {
+    bool enableExtend = true,
+    bool enableFast = true,
+  }) : super(address, infoHashBuffer, piecesNum, source, type: PeerType.TCP, localEnableExtended: enableExtend, localEnableFastPeer: enableFast);
 
   @override
   Future<Stream<Uint8List>?> connectRemote(int? timeout) async {
     timeout ??= 30;
     try {
-      _socket ??= await Socket.connect(address.address, address.port,
-          timeout: Duration(seconds: timeout));
+      _socket ??= await Socket.connect(address.address, address.port, timeout: Duration(seconds: timeout));
       return _socket;
     } on Exception catch (e) {
       throw TCPConnectException(e);
@@ -1261,26 +1244,23 @@ class _TCPPeer extends Peer {
 /// actually , one UTPSocketClient should maintain several uTP socket(uTP peer),
 /// this class need to improve.
 class _UTPPeer extends Peer {
-  UTPSocketClient? _client;
+  final UTPSocketClient _client;
   UTPSocket? _socket;
   _UTPPeer(
     CompactAddress address,
     List<int> infoHashBuffer,
     int piecesNum,
     this._socket,
-    PeerSource source, {
+    PeerSource source,
+    this._client, { // new mandatory parameter
     bool enableExtend = true,
     bool enableFast = true,
-  }) : super(address, infoHashBuffer, piecesNum, source,
-            type: PeerType.UTP,
-            localEnableExtended: enableExtend,
-            localEnableFastPeer: enableFast);
+  }) : super(address, infoHashBuffer, piecesNum, source, type: PeerType.UTP, localEnableExtended: enableExtend, localEnableFastPeer: enableFast);
 
   @override
   Future<Stream<Uint8List>?> connectRemote(int timeout) async {
     if (_socket != null) return _socket;
-    _client ??= UTPSocketClient();
-    _socket = await _client?.connect(address.address, address.port);
+    _socket = await _client.connect(address.address, address.port);
     return _socket;
   }
 
@@ -1292,7 +1272,7 @@ class _UTPPeer extends Peer {
   @override
   Future dispose([reason]) async {
     await _socket?.close();
-    await _client?.close();
+    // Don't close _client here, as it is shared!
     return super.dispose(reason);
   }
 }
