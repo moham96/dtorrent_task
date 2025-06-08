@@ -182,7 +182,7 @@ class _TorrentTask
   ServerSocket? _serverSocket;
 
   StreamSubscription<Socket>? _serverSocketListener;
-  ServerUTPSocket? _utpServer;
+  // ServerUTPSocket? _utpServer;
 
   final Set<InternetAddress> _comingIp = {};
 
@@ -423,9 +423,9 @@ class _TorrentTask
     _serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, 0);
     await _init(_metaInfo, _savePath);
     _serverSocketListener = _serverSocket?.listen(_hookInPeer);
-    _utpServer ??= await ServerUTPSocket.bind(
-        InternetAddress.anyIPv4, _serverSocket?.port ?? 0);
-    _utpServer?.listen(_hookUTP);
+    // _utpServer ??= await ServerUTPSocket.bind(
+    //     InternetAddress.anyIPv4, _serverSocket?.port ?? 0);
+    // _utpServer?.listen(_hookUTP);
 
     var map = {};
     map['name'] = _metaInfo.name;
