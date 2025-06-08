@@ -51,6 +51,14 @@ abstract class TorrentTask with EventsEmittable<TaskEvent> {
   // The name of the torrent
   String get name => metaInfo.name;
 
+  StateFile? get stateFile;
+
+  /// The file manager
+  DownloadFileManager? get fileManager;
+
+  /// The peers manager
+  PeersManager? get peersManager;
+
   // The dht instance
 
   DHT? get dht;
@@ -145,6 +153,9 @@ class _TorrentTask
 
   StateFile? _stateFile;
 
+  @override
+  StateFile? get stateFile => _stateFile;
+
   PieceManager? _pieceManager;
 
   @override
@@ -152,7 +163,13 @@ class _TorrentTask
 
   DownloadFileManager? _fileManager;
 
+  @override
+  DownloadFileManager? get fileManager => _fileManager;
+
   PeersManager? _peersManager;
+
+  @override
+  PeersManager? get peersManager => _peersManager;
 
   StreamingServer? _streamingServer;
 
