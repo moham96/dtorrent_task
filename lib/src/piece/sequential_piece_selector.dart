@@ -10,6 +10,10 @@ import 'piece_selector.dart';
 class SequentialPieceSelector implements PieceSelector {
   final Set<int> _priorityPieces = {};
 
+  /// should be called when the user seeks to a specific position in the video
+  /// to prioritize the pieces that are needed to continue streaming from that position.
+  /// also might be called at the start of the download to prioritize the pieces that are
+  /// needed to start streaming the video( the moov atom in mp4 files).
   @override
   void setPriorityPieces(Iterable<int> pieces) {
     _priorityPieces.clear();

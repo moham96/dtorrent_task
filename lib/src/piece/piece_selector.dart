@@ -15,5 +15,12 @@ abstract class PieceSelector {
   Piece? selectPiece(Peer peer, PieceProvider provider,
       [bool first = false, Set<int>? suggestPieces]);
 
+  // prioretize these pieces for the next selectPiece call
+  /// Sets the priority pieces for the next call to [selectPiece].
+  /// The [pieces] parameter is an iterable of piece indices that should be prioritized.
+  /// This method clears any previously set priority pieces and updates the internal state with the new set of priority pieces.
+  /// this can be used to prioritize pieces that are more likely to be needed next,
+  /// for example when the user is streaming a video and seeks to a specific position this method should be called to prioritize
+  /// the pieces that are needed to continue streaming from that position.
   void setPriorityPieces(Iterable<int> pieces);
 }
