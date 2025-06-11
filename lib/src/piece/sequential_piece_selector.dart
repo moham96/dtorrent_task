@@ -24,15 +24,17 @@ class SequentialPieceSelector implements PieceSelector {
   Piece? selectPiece(Peer peer, PieceProvider provider,
       [bool random = false, Set<int>? suggestPieces]) {
     // Check if the current downloading piece can be used by this peer.
-    // TODO: sort remoteHavePieces
-
+    // TODO: for last pieces maybe we can pull pieces even if they are not in the remoteCompletePieces?
+    // TODO: investigate the need to sort remoteHavePieces
     for (var piece in _priorityPieces) {
       var p = provider.pieces[piece];
       if (p == null ||
           p.isCompleted ||
           !p.haveAvailableSubPiece() ||
-          !peer.remoteCompletePieces.contains(piece)) continue;
-      return p;
+          !peer.remoteCompletePieces.contains(piece)) {
+        continue;
+      }
+      return p; //return the first piece that is not completed and has available sub-pieces and is in the remote complete pieces
     }
     for (var remoteHavePiece in peer.remoteCompletePieces) {
       var p = provider.pieces[remoteHavePiece];
