@@ -234,9 +234,14 @@ class PeersManager with Holepunch, PEX, EventsEmittable<PeerEvent> {
     if (socket != null) {
       // Indicates that it is an actively connected peer, and currently, only one IP address is allowed to connect at a time.
       if (!_incomingAddress.add(address.address)) {
+        _log.warning(
+            'Incoming connection from ${address.address} is ignored, already connected, multiple connections from the same IP are not allowed.');
         return;
       }
     }
+    // TODO: should we allow reconnects?
+    // _activePeers.removeWhere((p) => p.address == address);
+    // _peersAddress.remove(address);
     if (_peersAddress.add(address)) {
       Peer? peer;
       if (type == null || type == PeerType.TCP) {

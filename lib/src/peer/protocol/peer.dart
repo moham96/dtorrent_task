@@ -593,6 +593,10 @@ abstract class Peer
 
   void _processHaveAll() {
     if (!remoteEnableFastPeer) {
+      // persuent to BEP 0006,
+      // "When the fast extension is disabled, if a peer receives a Suggest Piece message, the peer MUST close the connection."
+
+      // TODO: Is this correct? or should we close the connection when the "local peer" has the extension disabled?
       dispose('Remote disabled fast extension but receive \'have all\'');
       return;
     }
@@ -605,12 +609,15 @@ abstract class Peer
     for (var i = index; i < _remoteBitfield!.piecesNum; i++) {
       _remoteBitfield?.setBit(i, true);
     }
-
+    _log.fine('Peer $address sent HAVE ALL and became a seeder!');
     events.emit(PeerHaveAll(this));
   }
 
   void _processHaveNone() {
     if (!remoteEnableFastPeer) {
+      // persuent to BEP 0006,
+
+      // TODO: Is this correct? or should we close the connection when the "local peer" has the extension disabled?
       dispose('Remote disabled fast extension but receive \'have none\'');
       return;
     }
@@ -623,6 +630,9 @@ abstract class Peer
   /// the peer MUST close the connection.
   void _processSuggestPiece(Uint8List message) {
     if (!remoteEnableFastPeer) {
+      // persuent to BEP 0006,
+      // "When the fast extension is disabled, if a peer receives a Suggest Piece message, the peer MUST close the connection."
+      // TODO: Is this correct? or should we close the connection when the "local peer" has the extension disabled?
       dispose('Remote disabled fast extension but receive \'suggest piece\'');
       return;
     }
@@ -635,6 +645,9 @@ abstract class Peer
 
   void _processRejectRequest(Uint8List message) {
     if (!remoteEnableFastPeer) {
+      // persuent to BEP 0006,
+      // "When the fast extension is disabled, if a peer receives a Reject Request message, the peer MUST close the connection."
+      // TODO: Is this correct? or should we close the connection when the "local peer" has the extension disabled?
       dispose('Remote disabled fast extension but receive \'reject request\'');
       return;
     }
@@ -655,6 +668,9 @@ abstract class Peer
 
   void _processAllowFast(Uint8List message) {
     if (!remoteEnableFastPeer) {
+      // persuent to BEP 0006,
+      // "When the fast extension is disabled, if a peer receives an Allow Fast message, the peer MUST close the connection."
+      // TODO: Is this correct? or should we close the connection when the "local peer" has the extension disabled?
       dispose('Remote disabled fast extension but receive \'allow fast\'');
       return;
     }
@@ -750,11 +766,19 @@ abstract class Peer
   /// Update the remote peer's bitfield.
   void updateRemoteBitfield(int index, bool have) {
     _remoteBitfield?.setBit(index, have);
+    if (isSeeder) {
+      _log.fine('Peer $address became a seeder after HAVE!');
+    }
   }
 
   void initRemoteBitfield(Uint8List bitfield) {
     _remoteBitfield = Bitfield(_piecesNum, bitfield);
     // Bitfield.copyFrom(_piecesNum, bitfield, 1);
+    if (isSeeder) {
+      _log.fine('Peer $address is a seeder, ');
+    } else {
+      _log.fine('Peer $address is NOT a seeder.');
+    }
     events.emit(PeerBitfieldEvent(this, _remoteBitfield));
   }
 
@@ -928,6 +952,8 @@ abstract class Peer
   bool sendRequest(int index, int begin,
       [int length = DEFAULT_REQUEST_LENGTH]) {
     if (_chokeMe) {
+      _log.fine(
+          'Peer $address is choking me, cannot send request for Piece ($index, $begin, $length)');
       if (!remoteEnableFastPeer || !_remoteAllowFastPieces.contains(index)) {
         return false;
       }
@@ -1041,6 +1067,8 @@ abstract class Peer
     interestedRemote = iamInterested;
     var id = ID_INTERESTED;
     if (!iamInterested) id = ID_NOT_INTERESTED;
+    _log.fine(
+        'iam interested: $iamInterested, send id: $id to remote peer $address');
     sendMessage(id);
   }
 
@@ -1255,7 +1283,6 @@ class _TCPPeer extends Peer {
   }
 }
 
-/// TODO :
 ///
 /// Currently , each uTP Peer use a single UTPSocketClient,
 /// actually , one UTPSocketClient should maintain several uTP socket(uTP peer),
