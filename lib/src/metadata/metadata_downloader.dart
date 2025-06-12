@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart' show sha1;
+import 'package:logging/logging.dart';
 
 import 'package:b_encode_decode/b_encode_decode.dart';
 import 'package:dart_ipify/dart_ipify.dart';
@@ -18,6 +20,11 @@ import '../peer/extensions/pex.dart';
 import '../utils.dart';
 import 'metadata_messenger.dart';
 
+/// Logger instance for MetadataDownloader
+final _log = Logger('MetadataDownloader');
+
+/// Downloads metadata (torrent info dictionary) using the ut_metadata extension.
+/// Implements BEP 9 (Metadata Exchange) and integrates with PEX and DHT for peer discovery.
 class MetadataDownloader
     with
         Holepunch,
@@ -25,68 +32,94 @@ class MetadataDownloader
         MetaDataMessenger,
         EventsEmittable<MetadataDownloaderEvent>
     implements AnnounceOptionsProvider {
-  final List<InternetAddress> IGNORE_IPS = [
-    InternetAddress.tryParse('0.0.0.0')!,
-    InternetAddress.tryParse('127.0.0.1')!
+  /// IP addresses that should be ignored for peer connections
+  final List<InternetAddress> ignoreIps = [
+    InternetAddress.anyIPv4,
+    InternetAddress.loopbackIPv4
   ];
 
+  /// Our external IP address as seen by peers
   InternetAddress? localExternalIP;
 
+  /// Total size of metadata in bytes
   int? _metaDataSize;
 
+  /// Number of metadata blocks (16KiB each, except possibly the last block)
   int? _metaDataBlockNum;
 
+  /// Returns the total size of metadata in bytes
   int? get metaDataSize => _metaDataSize;
 
-  num get progress => _metaDataBlockNum != null
+  /// Returns number of bytes downloaded so far
+  int? get bytesDownloaded =>
+      _metaDataSize != null ? _completedPieces.length * 16 * 1024 : 0;
+
+  /// Download progress as percentage (0-100)
+  double get progress => _metaDataBlockNum != null
       ? _completedPieces.length / _metaDataBlockNum! * 100
       : 0;
 
+  /// Our peer ID for the BitTorrent protocol
   late String _localPeerId;
 
+  /// Info hash as bytes
   late List<int> _infoHashBuffer;
 
-  List<int> get infoHashBuffer => _infoHashBuffer;
-
+  /// Info hash as hex string
   final String _infoHashString;
 
+  /// Currently connected peers
   final Set<Peer> _activePeers = {};
 
+  /// Peers that support metadata exchange
   final Set<Peer> _availablePeers = {};
 
+  /// Map of peer event listeners
   final Map<Peer, EventsListener<PeerEvent>> _peerListeners = {};
 
+  /// Set of all known peer addresses
   final Set<CompactAddress> _peersAddress = {};
 
+  /// Set of addresses with incoming connections
   final Set<InternetAddress> _incomingAddress = {};
 
+  /// DHT instance for peer discovery
   final DHT _dht = DHT();
   DHT get dht => _dht;
 
+  /// Whether the downloader is currently running
   bool _running = false;
 
+  /// End of bencoded data marker
   final int E = 'e'.codeUnits[0];
 
-  List<int> _infoDatas = [];
+  /// Buffer for storing downloaded metadata pieces
+  List<int> _metadataBuffer = [];
 
+  /// Queue of metadata pieces to download
   final Queue<int> _metaDataPieces = Queue();
 
+  /// List of completed piece indices
   final List<int> _completedPieces = [];
 
+  /// Map of request timeouts by peer ID
   final Map<String, Timer> _requestTimeout = {};
 
+  /// Creates a new metadata downloader for the given info hash
   MetadataDownloader(this._infoHashString) {
     _localPeerId = generatePeerId();
     _infoHashBuffer = hexString2Buffer(_infoHashString)!;
     assert(_infoHashBuffer.isNotEmpty && _infoHashBuffer.length == 20,
         'Info Hash String is incorrect');
     _init();
+    _log.info('Created MetadataDownloader for hash: $_infoHashString');
   }
   Future<void> _init() async {
     try {
       localExternalIP = InternetAddress.tryParse(await Ipify.ipv4());
+      _log.info('External IP detected: $localExternalIP');
     } catch (e) {
-      // do nothing
+      _log.warning('Failed to detect external IP', e);
     }
   }
 
@@ -211,7 +244,10 @@ class MetadataDownloader
   void _processExtendedMessage(dynamic source, String name, dynamic data) {
     if (!_running) return;
     var peer = source as Peer;
+    _log.fine('Received extended message "$name" from peer ${peer.address}');
+
     if (name == 'ut_metadata' && data is Uint8List) {
+      _log.fine('Processing metadata message from peer ${peer.address}');
       parseMetaDataMessage(peer, data);
     }
     if (name == 'ut_holepunch') {
@@ -223,7 +259,8 @@ class MetadataDownloader
     if (name == 'handshake') {
       if (data['metadata_size'] != null && _metaDataSize == null) {
         _metaDataSize = data['metadata_size'];
-        _infoDatas = List.filled(_metaDataSize!, 0);
+        _log.info('Received metadata size: $_metaDataSize bytes');
+        _metadataBuffer = List.filled(_metaDataSize!, 0);
         _metaDataBlockNum = _metaDataSize! ~/ (16 * 1024);
         if (_metaDataBlockNum! * (16 * 1024) != _metaDataSize) {
           _metaDataBlockNum = _metaDataBlockNum! + 1;
@@ -242,7 +279,7 @@ class MetadataDownloader
         } catch (e) {
           return;
         }
-        if (IGNORE_IPS.contains(myIp)) return;
+        if (ignoreIps.contains(myIp)) return;
         localExternalIP = InternetAddress.fromRawAddress(data['yourip']);
       }
 
@@ -293,19 +330,40 @@ class MetadataDownloader
   }
 
   void _pieceDownloadComplete(int piece, int start, List<int> bytes) async {
-    // Prevent multiple invocations"
     if (_completedPieces.length >= _metaDataBlockNum! ||
         _completedPieces.contains(piece)) {
+      _log.warning('Duplicate or late piece $piece received, ignoring');
       return;
     }
-    var started = piece * 16 * 1024;
-    List.copyRange(_infoDatas, started, bytes, start);
+
+    _log.info(
+        'Piece $piece downloaded (${_completedPieces.length + 1}/$_metaDataBlockNum)');
+
+    var pieceOffset = piece * 16 * 1024;
+    List.copyRange(_metadataBuffer, pieceOffset, bytes, start);
     _completedPieces.add(piece);
-    events.emit(MetaDataDownloadProgress(progress));
+
+    double currentProgress = progress;
+    _log.info('Download progress: ${currentProgress.toStringAsFixed(2)}%');
+    events.emit(MetaDataDownloadProgress(currentProgress));
+
     if (_completedPieces.length >= _metaDataBlockNum!) {
-      // At this point, stop and emit the event
+      _log.info('Metadata download complete! Verifying...');
+      var digest = sha1.convert(_metadataBuffer);
+      var valid = digest.toString() == _infoHashString;
+      if (!valid) {
+        _log.warning('Metadata verification failed! Hash mismatch.');
+        events.emit(MetaDataDownloadFailed('Metadata verification failed'));
+
+        //TODO: Restart metadata download if needed
+        // _log.info('Restarting metadata download...');
+        // return;
+      }
+      _log.info('Metadata verified successfully');
+      // Emit the complete event with the downloaded metadata
+      events.emit(MetaDataDownloadComplete(_metadataBuffer));
       await stop();
-      events.emit(MetaDataDownloadComplete(_infoDatas));
+      _log.info('Metadata successfully downloaded and verified');
       return;
     }
   }

@@ -13,3 +13,10 @@ class MetaDataDownloadProgress implements MetadataDownloaderEvent {
     this.progress,
   );
 }
+
+class MetaDataDownloadFailed implements MetadataDownloaderEvent {
+  String error;
+  MetaDataDownloadFailed(
+    this.error,
+  );
+}

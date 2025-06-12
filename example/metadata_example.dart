@@ -9,13 +9,20 @@ import 'package:dtorrent_task/src/metadata/metadata_downloader_events.dart';
 import 'package:dtorrent_task/src/peer/protocol/peer.dart';
 import 'package:dtorrent_task/src/task.dart';
 import 'package:dtorrent_task/src/task_events.dart';
+import 'package:dtorrent_task/src/utils.dart' show hexString2Buffer;
 import 'package:dtorrent_tracker/dtorrent_tracker.dart';
 import 'package:events_emitter2/events_emitter2.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as path;
 
 var scriptDir = path.dirname(Platform.script.path);
 
 void main(List<String> args) async {
+  Logger.root.level = Level.INFO;
+  Logger.root.onRecord.listen((record) {
+    print(
+        '[${record.loggerName}] ${record.level.name}: ${record.time}: ${record.message}');
+  });
   var infohashString = 'dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c';
   var metadata = MetadataDownloader(infohashString);
   var metadataListener = metadata.createListener();
@@ -78,7 +85,8 @@ void main(List<String> args) async {
       }
     });
 
-  var u8List = Uint8List.fromList(metadata.infoHashBuffer);
+  var infoHashBuffer = Uint8List.fromList(hexString2Buffer(infohashString)!);
+
   trackerListener.on<AnnouncePeerEventEvent>((event) {
     if (event.event == null) return;
     var peers = event.event!.peers;
@@ -88,7 +96,7 @@ void main(List<String> args) async {
   });
   findPublicTrackers().listen((announceUrls) {
     for (var element in announceUrls) {
-      tracker.runTracker(element, u8List);
+      tracker.runTracker(element, infoHashBuffer);
     }
   });
 }
