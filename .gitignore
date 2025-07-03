@@ -25,3 +25,4 @@ test/test_me.dart
 
 *.iml
 pubspec_overrides.yaml
+coverage/
