@@ -205,7 +205,9 @@ class Piece {
   bool pushSubPiece(int subIndex) {
     if (subPieceQueue.contains(subIndex) ||
         _inMemorySubPieces.contains(subIndex) ||
-        _onDiskSubPieces.contains(subIndex)) return false;
+        _onDiskSubPieces.contains(subIndex)) {
+      return false;
+    }
     subPieceQueue.addFirst(subIndex);
     return true;
   }
@@ -218,7 +220,9 @@ class Piece {
   bool pushSubPieceLast(int index) {
     if (subPieceQueue.contains(index) ||
         _inMemorySubPieces.contains(index) ||
-        _onDiskSubPieces.contains(index)) return false;
+        _onDiskSubPieces.contains(index)) {
+      return false;
+    }
     subPieceQueue.addLast(index);
     return true;
   }

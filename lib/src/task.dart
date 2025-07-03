@@ -25,7 +25,6 @@ import 'file/state_file.dart';
 import 'lsd/lsd.dart';
 import 'peer/protocol/peer.dart';
 import 'piece/base_piece_selector.dart';
-import 'piece/piece_manager.dart';
 import 'peer/swarm/peers_manager.dart';
 import 'utils.dart';
 
@@ -176,7 +175,7 @@ class _TorrentTask
   bool stream;
 
   /// The maximum size of the disk write cache.
-  int maxWriteBufferSize;
+  final int maxWriteBufferSize = MAX_WRITE_BUFFER_SIZE;
 
   final _flushIndicesBuffer = <int>{};
   @override
@@ -210,8 +209,7 @@ class _TorrentTask
   EventsListener<LSDEvent>? lsdListener;
   EventsListener<DHTEvent>? _dhtListener;
 
-  _TorrentTask(this._metaInfo, this._savePath,
-      {this.maxWriteBufferSize = MAX_WRITE_BUFFER_SIZE, this.stream = false}) {
+  _TorrentTask(this._metaInfo, this._savePath, {this.stream = false}) {
     _peerId = generatePeerId();
   }
 
@@ -623,7 +621,9 @@ class _TorrentTask
   void _processPeerRequest(PeerRequestEvent event) {
     if (_fileManager == null ||
         _peersManager == null ||
-        _peersManager!.isPaused) return;
+        _peersManager!.isPaused) {
+      return;
+    }
     _fileManager!.readFile(event.index, event.begin, event.length);
   }
 
