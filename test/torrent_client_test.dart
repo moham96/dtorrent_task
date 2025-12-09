@@ -9,13 +9,49 @@ import 'package:test/test.dart';
 import 'package:dtorrent_parser/dtorrent_parser.dart';
 import 'package:dtorrent_task/dtorrent_task.dart';
 import 'package:path/path.dart' as path;
+import 'package:b_encode_decode/b_encode_decode.dart' as bencoding;
 
 final testDirectory = path.join(
   Directory.current.path,
   Directory.current.path.endsWith('test') ? '' : 'test',
 );
-var torrentsPath =
-    path.canonicalize(path.join(testDirectory, '..', '..', '..', 'torrents'));
+
+/// Creates a minimal valid torrent file in memory
+/// Returns the bencoded bytes that can be passed to Torrent.parse
+Uint8List createMinimalTorrentFile({
+  String name = 'test-file',
+  int length = 100,
+  int pieceLength = 16384,
+  List<String>? announces,
+}) {
+  // Create pieces (20 bytes per piece, SHA1 hash)
+  final numPieces = (length / pieceLength).ceil();
+  final pieces = Uint8List(numPieces * 20);
+  // Fill with dummy hash values
+  for (var i = 0; i < numPieces; i++) {
+    pieces.setRange(i * 20, (i + 1) * 20, List.filled(20, i % 256));
+  }
+
+  final info = {
+    'name': name,
+    'piece length': pieceLength,
+    'pieces': pieces,
+    'length': length,
+  };
+
+  final torrent = <String, dynamic>{
+    'info': info,
+  };
+
+  if (announces != null && announces.isNotEmpty) {
+    torrent['announce'] = announces[0];
+    if (announces.length > 1) {
+      torrent['announce-list'] = announces.map((a) => [a]).toList();
+    }
+  }
+
+  return Uint8List.fromList(bencoding.encode(torrent));
+}
 
 void main() {
   group('Bitfield test - ', () {
@@ -173,8 +209,14 @@ void main() {
     var directory = path.canonicalize(path.join('..', 'tmp'));
     Torrent? torrent;
     setUpAll(() async {
-      torrent = await Torrent.parse(
-          path.join(torrentsPath, 'big-buck-bunny.torrent'));
+      // Create a minimal torrent file programmatically
+      final torrentBytes = createMinimalTorrentFile(
+        name: 'test-state-file',
+        length: 1000000, // 1MB for testing
+        pieceLength: 16384,
+        announces: ['http://tracker.example.com:8080/announce'],
+      );
+      torrent = await Torrent.parse(torrentBytes);
       var f = File(path.join(directory, '${torrent!.infoHash}.bt.state'));
       if (await f.exists()) await f.delete();
     });

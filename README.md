@@ -1,5 +1,7 @@
 ## About
-Dart library for implementing BitTorrent client. 
+Dart library for implementing BitTorrent client.
+
+[![codecov](https://codecov.io/gh/moham96/dtorrent_task/branch/main/graph/badge.svg)](https://codecov.io/gh/moham96/dtorrent_task) 
 
 Whole Dart Torrent client contains serival parts :
 - [Bencode](https://pub.dev/packages/b_encode_decode) 
@@ -64,3 +66,25 @@ and there is some method to control the `TorrentTask`:
    // Resume task:
    task.resume();
 ```
+
+## Testing
+
+Run tests:
+```bash
+dart test
+```
+
+Run tests with coverage:
+```bash
+dart test --coverage=coverage
+dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --packages=.dart_tool/package_config.json --report-on=lib
+```
+
+Or use the provided script:
+```bash
+dart tool/coverage.dart
+```
+
+The coverage report will be generated at `coverage/lcov.info` and can be viewed with tools like `genhtml` or uploaded to services like Codecov.
+
+Coverage is automatically uploaded to [Codecov](https://codecov.io) on every push and pull request via GitHub Actions.
