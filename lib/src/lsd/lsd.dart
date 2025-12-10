@@ -10,18 +10,15 @@ import 'package:logging/logging.dart';
 
 var _log = Logger('lsd');
 
-// const LSD_HOST = '239.192.152.143';
-// const LSD_PORT = 6771;
+const String LSD_HOST_STRING = '239.192.152.143:6771\r\n';
+
+final InternetAddress LSD_HOST =
+    InternetAddress.fromRawAddress(Uint8List.fromList([239, 192, 152, 143]));
+const LSD_PORT = 6771;
+
+const String ANNOUNCE_FIRST_LINE = 'BT-SEARCH * HTTP/1.1\r\n';
 
 class LSD with EventsEmittable<LSDEvent> {
-  static final String LSD_HOST_STRING = '239.192.152.143:6771\r\n';
-
-  static final InternetAddress LSD_HOST =
-      InternetAddress.fromRawAddress(Uint8List.fromList([239, 192, 152, 143]));
-  static final LSD_PORT = 6771;
-
-  static final String ANNOUNCE_FIRST_LINE = 'BT-SEARCH * HTTP/1.1\r\n';
-
   bool _closed = false;
 
   bool get isClosed => _closed;

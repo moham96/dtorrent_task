@@ -137,9 +137,6 @@ abstract class TorrentTask with EventsEmittable<TaskEvent> {
 class _TorrentTask
     with EventsEmittable<TaskEvent>
     implements TorrentTask, AnnounceOptionsProvider {
-  static InternetAddress LOCAL_ADDRESS =
-      InternetAddress.fromRawAddress(Uint8List.fromList([127, 0, 0, 1]));
-
   TorrentAnnounceTracker? _tracker;
 
   DHT? _dht = DHT();
@@ -374,7 +371,7 @@ class _TorrentTask
   }
 
   void _hookUTP(UTPSocket socket) {
-    if (socket.remoteAddress == LOCAL_ADDRESS) {
+    if (socket.remoteAddress == InternetAddress.loopbackIPv4) {
       socket.close();
       return;
     }
@@ -393,7 +390,7 @@ class _TorrentTask
   }
 
   void _hookInPeer(Socket socket) {
-    if (socket.remoteAddress == LOCAL_ADDRESS) {
+    if (socket.remoteAddress == InternetAddress.loopbackIPv4) {
       socket.close();
       return;
     }
