@@ -53,7 +53,7 @@ void main(List<String> mainArgs) async {
     print('dir Can\'t be read');
     exit(0);
   }
-  var torrent = await Torrent.parse(filePath);
+  var torrent = await Torrent.parseFromFile(filePath);
   TorrentTask task;
   bool stream = false;
   if (args['task-type'] == 'stream') {

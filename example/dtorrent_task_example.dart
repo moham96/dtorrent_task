@@ -17,11 +17,10 @@ void main() async {
   try {
     var torrentFile = path.join(torrentsPath, 'big-buck-bunny.torrent');
     var savePath = path.join(scriptDir, '..', 'tmp');
-    var model = await Torrent.parse(torrentFile);
+    var model = await Torrent.parseFromFile(torrentFile);
     // model.announces.clear();
     var task = TorrentTask.newTask(model, savePath);
     Timer? timer;
-    Timer? timer1;
     var startTime = DateTime.now().millisecondsSinceEpoch;
     EventsListener<TaskEvent> listener = task.createListener();
     listener
@@ -29,7 +28,6 @@ void main() async {
         print(
             'Complete! spend time : ${((DateTime.now().millisecondsSinceEpoch - startTime) / 60000).toStringAsFixed(2)} minutes');
         timer?.cancel();
-        timer1?.cancel();
         task.stop();
       })
       ..on<TaskStopped>(((event) {

@@ -12,7 +12,7 @@ var torrentsPath =
 void main(List<String> args) async {
   print(await getTorrentTaskVersion());
   var torrentFile = path.join(torrentsPath, 'big-buck-bunny.torrent');
-  var model = await Torrent.parse(torrentFile);
+  var model = await Torrent.parseFromFile(torrentFile);
   var infoHash = model.infoHash;
   var lsd = LSD(infoHash, 'daa231dfa');
   lsd.port = 61111;

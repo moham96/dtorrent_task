@@ -216,7 +216,7 @@ void main() {
         pieceLength: 16384,
         announces: ['http://tracker.example.com:8080/announce'],
       );
-      torrent = await Torrent.parse(torrentBytes);
+      torrent = await Torrent.parseFromBytes(torrentBytes);
       var f = File(path.join(directory, '${torrent!.infoHash}.bt.state'));
       if (await f.exists()) await f.delete();
     });
