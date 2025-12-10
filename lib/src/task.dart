@@ -6,12 +6,11 @@ import 'package:dtorrent_parser/dtorrent_parser.dart';
 import 'package:dtorrent_task/src/file/download_file_manager_events.dart';
 import 'package:dtorrent_task/src/httpserver/server.dart';
 import 'package:dtorrent_task/src/lsd/lsd_events.dart';
-import 'package:dtorrent_task/src/peer/protocol/peer_events.dart';
+import 'package:dtorrent_task/src/peer/protocol/peer_events.dart'
+    as peer_events;
 import 'package:dtorrent_task/src/peer/swarm/peers_manager_events.dart';
 import 'package:dtorrent_task/src/piece/piece_base.dart';
 import 'package:dtorrent_task/src/piece/piece_manager_events.dart';
-import 'package:dtorrent_task/src/peer/protocol/peer_events.dart'
-    as peer_events;
 import 'package:dtorrent_task/src/piece/sequential_piece_selector.dart';
 import 'package:dtorrent_task/src/task_events.dart';
 import 'package:dtorrent_tracker/dtorrent_tracker.dart';
@@ -80,11 +79,13 @@ abstract class TorrentTask with EventsEmittable<TaskEvent> {
   /// Average upload speed
   double get averageUploadSpeed;
 
-  // TODO debug:
+  /// UTP download speed
   double get utpDownloadSpeed;
-  // TODO debug:
+
+  /// UTP upload speed
   double get utpUploadSpeed;
-  // TODO debug:
+
+  /// UTP peer count
   int get utpPeerCount;
 
   /// Downloaded total bytes length
@@ -351,7 +352,7 @@ class _TorrentTask
   }
 
   void _processLSDPeerEvent(LSDNewPeer event) {
-    print('There is LSD! !');
+    _log.info('LSD peer found: ${event.address}');
   }
 
   void _processNewPeerFound(CompactAddress url, PeerSource source) {
@@ -456,18 +457,18 @@ class _TorrentTask
     trackerListener?.on<AnnouncePeerEventEvent>(_processTrackerPeerEvent);
 
     peersManagerListener
-      ?..on<PeerAllowFast>(_processAllowFast)
-      ..on<PeerRejectEvent>(_processRejectRequest)
-      ..on<PeerDisposeEvent>(_processPeerDispose)
-      ..on<PeerPieceEvent>(_processReceivePiece)
-      ..on<PeerRequestEvent>(_processPeerRequest)
-      ..on<PeerHandshakeEvent>(_processPeerHandshake)
-      ..on<PeerBitfieldEvent>(_processBitfieldUpdate)
-      ..on<PeerHaveAll>(_processHaveAll)
-      ..on<PeerHaveNone>(_processHaveNone)
-      ..on<PeerChokeChanged>(_processChokeChange)
-      ..on<PeerHaveEvent>(_processHaveUpdate)
-      ..on<RequestTimeoutEvent>(
+      ?..on<peer_events.PeerAllowFast>(_processAllowFast)
+      ..on<peer_events.PeerRejectEvent>(_processRejectRequest)
+      ..on<peer_events.PeerDisposeEvent>(_processPeerDispose)
+      ..on<peer_events.PeerPieceEvent>(_processReceivePiece)
+      ..on<peer_events.PeerRequestEvent>(_processPeerRequest)
+      ..on<peer_events.PeerHandshakeEvent>(_processPeerHandshake)
+      ..on<peer_events.PeerBitfieldEvent>(_processBitfieldUpdate)
+      ..on<peer_events.PeerHaveAll>(_processHaveAll)
+      ..on<peer_events.PeerHaveNone>(_processHaveNone)
+      ..on<peer_events.PeerChokeChanged>(_processChokeChange)
+      ..on<peer_events.PeerHaveEvent>(_processHaveUpdate)
+      ..on<peer_events.RequestTimeoutEvent>(
           (event) => _processRequestTimeout(event.peer, event.requests))
       ..on<UpdateUploaded>(
           (event) => _fileManager?.updateUpload(event.uploaded));
@@ -549,7 +550,7 @@ class _TorrentTask
   }
 
   /// Even if the other peer has choked me, I can still download.
-  void _processAllowFast(PeerAllowFast event) {
+  void _processAllowFast(peer_events.PeerAllowFast event) {
     var piece = _pieceManager?[event.index];
     if (piece != null && piece.haveAvailableSubPiece()) {
       piece.addAvailablePeer(event.peer);
@@ -558,12 +559,12 @@ class _TorrentTask
     }
   }
 
-  void _processRejectRequest(PeerRejectEvent event) {
+  void _processRejectRequest(peer_events.PeerRejectEvent event) {
     var piece = _pieceManager?[event.index];
     piece?.pushSubPieceLast(event.begin ~/ DEFAULT_REQUEST_LENGTH);
   }
 
-  void _processPeerDispose(PeerDisposeEvent event) {
+  void _processPeerDispose(peer_events.PeerDisposeEvent event) {
     if (_pieceManager == null) return;
     var bufferRequests = event.peer.requestBuffer;
 
@@ -579,14 +580,16 @@ class _TorrentTask
     for (var element in requests) {
       var pieceIndex = element[0];
       var begin = element[1];
-      // TODO This is dangerous here. Currently, we are dividing a piece into 16 KB chunks. What if it's not the case?
+      // Note: Assumes piece sub-pieces are divided by DEFAULT_REQUEST_LENGTH (16KB).
+      // If request length differs, this calculation may be incorrect.
+      // TODO: Debug this behavior
       var piece = _pieceManager![pieceIndex];
       var subindex = begin ~/ DEFAULT_REQUEST_LENGTH;
       piece?.pushSubPiece(subindex);
     }
   }
 
-  void _processReceivePiece(PeerPieceEvent event) {
+  void _processReceivePiece(peer_events.PeerPieceEvent event) {
     if (_pieceManager == null || _peersManager == null) return;
 
     var piece = _pieceManager![event.index];
@@ -595,7 +598,8 @@ class _TorrentTask
       var blockStart = piece.offset + event.begin;
       var blockEnd = blockStart + event.block.length;
       if (blockEnd > piece.end) {
-        _log.info('Error:', 'Piece overlaps with next piece');
+        _log.warning(
+            'Piece overlaps with next piece: index=${event.index}, begin=${event.begin}');
         // will request the same piece below
       } else {
         if (!piece.isCompleted) {
@@ -610,12 +614,12 @@ class _TorrentTask
     Timer.run(() => requestPieces(event.peer, i));
   }
 
-  void _processPeerHandshake(PeerHandshakeEvent event) {
+  void _processPeerHandshake(peer_events.PeerHandshakeEvent event) {
     if (_fileManager == null) return;
     event.peer.sendBitfield(_fileManager!.localBitfield);
   }
 
-  void _processPeerRequest(PeerRequestEvent event) {
+  void _processPeerRequest(peer_events.PeerRequestEvent event) {
     if (_fileManager == null ||
         _peersManager == null ||
         _peersManager!.isPaused) {
@@ -624,16 +628,16 @@ class _TorrentTask
     _fileManager!.readFile(event.index, event.begin, event.length);
   }
 
-  void _processHaveAll(PeerHaveAll event) {
+  void _processHaveAll(peer_events.PeerHaveAll event) {
     _processBitfieldUpdate(
-        PeerBitfieldEvent(event.peer, event.peer.remoteBitfield));
+        peer_events.PeerBitfieldEvent(event.peer, event.peer.remoteBitfield));
   }
 
-  void _processHaveNone(PeerHaveNone event) {
-    _processBitfieldUpdate(PeerBitfieldEvent(event.peer, null));
+  void _processHaveNone(peer_events.PeerHaveNone event) {
+    _processBitfieldUpdate(peer_events.PeerBitfieldEvent(event.peer, null));
   }
 
-  void _processBitfieldUpdate(PeerBitfieldEvent bitfieldEvent) {
+  void _processBitfieldUpdate(peer_events.PeerBitfieldEvent bitfieldEvent) {
     if (_fileManager == null) return;
     if (bitfieldEvent.bitfield != null) {
       if (bitfieldEvent.peer.interestedRemote) return;
@@ -655,7 +659,7 @@ class _TorrentTask
     bitfieldEvent.peer.sendInterested(false);
   }
 
-  void _processHaveUpdate(PeerHaveEvent event) {
+  void _processHaveUpdate(peer_events.PeerHaveEvent event) {
     if (pieceManager == null || _fileManager == null || _peersManager == null) {
       return;
     }
@@ -680,7 +684,7 @@ class _TorrentTask
     }
   }
 
-  void _processChokeChange(PeerChokeChanged event) {
+  void _processChokeChange(peer_events.PeerChokeChanged event) {
     if (_pieceManager == null || _peersManager == null) return;
     // Update available peers for pieces.
     if (!event.choked) {
@@ -862,21 +866,18 @@ class _TorrentTask
     }
   }
 
-  // TODO debug:
   @override
   double get utpDownloadSpeed {
     if (_peersManager == null) return 0.0;
     return _peersManager!.utpDownloadSpeed;
   }
 
-// TODO debug:
   @override
   double get utpUploadSpeed {
     if (_peersManager == null) return 0.0;
     return _peersManager!.utpUploadSpeed;
   }
 
-// TODO debug:
   @override
   int get utpPeerCount {
     if (_peersManager == null) return 0;
