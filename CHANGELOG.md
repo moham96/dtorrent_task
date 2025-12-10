@@ -67,3 +67,18 @@
 - optimizing
 - fix memory leaks
 - some refactoring and cleanup
+
+## 0.4.1
+- Fix piece caching in memory to prevent crashes on large torrents
+- Fix piece re-initialization issue for flushed pieces
+- Stop using reusePort which is not supported on all platforms
+- Emit DownloadManagerFileCompleted only once per file
+- Export MetadataDownloader class and related symbols
+- Expose useful properties
+- Refactor metadata handling in MetadataDownloader to use Torrent.parseFromBytes
+- Add comments and logging to MetadataDownloader
+- Add debug logging, comments and TODOs
+- Add Codecov configuration and CI workflow
+- Add Dependabot configuration for automated dependency updates
+- Update dependencies and README for testing instructions
+- Various code improvements and fixes
