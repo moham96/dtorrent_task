@@ -3,6 +3,13 @@ import 'dart:convert';
 import 'package:dtorrent_common/dtorrent_common.dart';
 import 'package:dtorrent_task/dtorrent_task.dart';
 
+/// Generates a unique peer ID for BitTorrent protocol.
+///
+/// The peer ID consists of a prefix (default: ID_PREFIX) followed by
+/// 9 random bytes encoded in base64, resulting in a 20-byte peer ID.
+///
+/// [prefix] The prefix to use (defaults to ID_PREFIX).
+/// Returns a 20-character string representing the peer ID.
 String generatePeerId([String prefix = ID_PREFIX]) {
   var r = randomBytes(9);
   var base64Str = base64Encode(r);
@@ -10,15 +17,25 @@ String generatePeerId([String prefix = ID_PREFIX]) {
   return id;
 }
 
+/// Converts a hexadecimal string to a list of bytes.
+///
+/// [hexStr] The hexadecimal string to convert (must have even length).
+/// Returns a list of bytes, or null if the string is invalid.
 List<int>? hexString2Buffer(String hexStr) {
-  // ignore: prefer_is_empty
-  if (hexStr.isEmpty || hexStr.length.remainder(2) != 0) return null;
+  if (hexStr.isEmpty || hexStr.length.remainder(2) != 0) {
+    return null;
+  }
   var size = hexStr.length ~/ 2;
   var re = <int>[];
   for (var i = 0; i < size; i++) {
     var s = hexStr.substring(i * 2, i * 2 + 2);
-    var byte = int.parse(s, radix: 16);
-    re.add(byte);
+    try {
+      var byte = int.parse(s, radix: 16);
+      re.add(byte);
+    } catch (e) {
+      // Invalid hex character
+      return null;
+    }
   }
   return re;
 }

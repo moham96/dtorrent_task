@@ -49,10 +49,14 @@ class Piece {
       : _subPieceSize = requestLength,
         _subPiecesCount = (byteLength + requestLength - 1) ~/ requestLength {
     if (requestLength <= 0) {
-      throw Exception('Request length should bigger than zero');
+      throw ArgumentError.value(
+          requestLength, 'requestLength', 'Request length must be greater than zero');
     }
     if (requestLength > DEFAULT_REQUEST_LENGTH) {
-      throw Exception('Request length should smaller than 16kb');
+      throw ArgumentError.value(
+          requestLength,
+          'requestLength',
+          'Request length must not exceed ${DEFAULT_REQUEST_LENGTH} bytes (16KB)');
     }
     _subPiecesQueue =
         Queue.from(List.generate(_subPiecesCount, (index) => index));

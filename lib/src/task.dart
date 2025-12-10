@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dtorrent_parser/dtorrent_parser.dart';
+import 'package:dtorrent_task/src/file/download_file.dart';
 import 'package:dtorrent_task/src/file/download_file_manager_events.dart';
 import 'package:dtorrent_task/src/httpserver/server.dart';
 import 'package:dtorrent_task/src/lsd/lsd_events.dart';
@@ -283,6 +284,12 @@ class _TorrentTask
     }
   }
 
+  /// Creates a stream for reading a file from the torrent.
+  ///
+  /// [filePosition] The starting position in the file (default: 0).
+  /// [endPosition] The ending position in the file (null means end of file).
+  /// [fileName] The name of the file to stream (null means first mp4 file or first file).
+  /// Returns a stream of file data, or null if the file cannot be found or task is not initialized.
   @override
   Stream<List<int>>? createStream(
       {int filePosition = 0, int? endPosition, String? fileName}) {
@@ -292,17 +299,28 @@ class _TorrentTask
       return null;
     }
     TorrentFile? file;
-    if (fileName != null) {
-      file = _fileManager!.metainfo.files
-          .firstWhere((file) => file.name == fileName);
-    } else {
-      file = _fileManager!.metainfo.files.firstWhere(
-        (file) => file.name.contains('mp4'),
-        orElse: () => _fileManager!.metainfo.files.first,
-      );
+    try {
+      if (fileName != null) {
+        file = _fileManager!.metainfo.files
+            .firstWhere((file) => file.name == fileName);
+      } else {
+        file = _fileManager!.metainfo.files.firstWhere(
+          (file) => file.name.contains('mp4'),
+          orElse: () => _fileManager!.metainfo.files.first,
+        );
+      }
+    } catch (e) {
+      _log.warning('File not found for streaming: ${fileName ?? "default"}');
+      return null;
     }
-    var localFile = _fileManager?.files.firstWhere(
-        (downloadedFile) => downloadedFile.originalFileName == file?.name);
+    DownloadFile? localFile;
+    try {
+      localFile = _fileManager?.files.firstWhere(
+          (downloadedFile) => downloadedFile.originalFileName == file?.name);
+    } catch (e) {
+      _log.warning('Local file not found for: ${file?.name}');
+      return null;
+    }
 
     if (localFile == null) return null;
     // if no end position provided, read all file
