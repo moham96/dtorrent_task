@@ -10,6 +10,7 @@ export 'src/stream/stream_events.dart';
 export 'src/task_events.dart';
 export 'src/metadata/metadata_downloader.dart';
 export 'src/metadata/metadata_downloader_events.dart';
+export 'src/lsd/lsd.dart';
 
 /// Peer ID prefix
 const ID_PREFIX = '-DT0201-';

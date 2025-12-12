@@ -20,25 +20,20 @@ const String ANNOUNCE_FIRST_LINE = 'BT-SEARCH * HTTP/1.1\r\n';
 
 class LSD with EventsEmittable<LSDEvent> {
   bool _closed = false;
+  bool _started = false;
 
   bool get isClosed => _closed;
 
+  bool get isStarted => _started;
+
   RawDatagramSocket? _socket;
 
-  final String _infoHashHex;
+  final Map<String, _LSDInfo> _registeredHashes = {};
 
-  int? port;
-
-  final String _peerId;
-
-  LSD(this._infoHashHex, this._peerId);
-
-  Timer? _timer;
+  Timer? _announceTimer;
 
   Future<void> start() async {
-    if (port == null) {
-      throw Exception('lsd port is not set');
-    }
+    if (_started | _closed) return;
     _socket ??= await RawDatagramSocket.bind(InternetAddress.anyIPv4, LSD_PORT);
     _socket?.listen((event) {
       if (event == RawSocketEvent.read) {
@@ -50,11 +45,13 @@ class LSD with EventsEmittable<LSDEvent> {
         }
       }
     }, onDone: () {
-      _log.info('lsd done');
+      _log.info('LSD socket done');
     }, onError: (e) {
-      _log.warning('lsd error', e);
+      _log.warning('LSD socket error', e);
     });
-    await _announce();
+    _started = true;
+    _log.info('LSD manager started on port $LSD_PORT');
+    _startAnnouncing();
   }
 
   void _fireLSDPeerEvent(InternetAddress address, int port, String infoHash) {
@@ -72,38 +69,41 @@ class LSD with EventsEmittable<LSDEvent> {
       if (element.startsWith('Port:')) {
         var index = element.indexOf('Port:');
         index += 5;
-        var portStr = element.substring(index);
+        var portStr = element.substring(index).trim();
         port = int.tryParse(portStr);
       }
       if (element.startsWith('Infohash:')) {
-        infoHash = element.substring(9);
+        infoHash = element.substring(9).trim();
       }
     }
 
     if (port != null && infoHash != null) {
       if (port >= 0 && port <= 63354 && infoHash.length == 40) {
-        _fireLSDPeerEvent(source, port, infoHash);
+        // Emit event if this info hash is registered
+        if (_registeredHashes.containsKey(infoHash)) {
+          _fireLSDPeerEvent(source, port, infoHash);
+        }
       }
     }
   }
 
   Future<void> _announce() async {
-    _timer?.cancel();
-    var message = _createMessage();
-    await _sendMessage(message);
-    _timer = Timer(Duration(seconds: 5 * 60), () => _announce());
+    if (_socket == null) return;
+
+    for (var info in _registeredHashes.values) {
+      var port = info.port;
+      var message = _createMessage(info.infoHashHex, info.peerId, port);
+      await _sendMessage(message);
+    }
   }
 
-  Future<dynamic>? _sendMessage(String message, [Completer? completer]) {
-    if (_socket == null) return null;
-    completer ??= Completer();
+  Future<void> _sendMessage(String message) async {
+    if (_socket == null) return;
     var success = _socket?.send(message.codeUnits, LSD_HOST, LSD_PORT);
-    if (success != null && !(success > 0)) {
-      Timer.run(() => _sendMessage(message, completer));
-    } else {
-      completer.complete();
+    if (success == null || success <= 0) {
+      // Retry on next cycle
+      Timer.run(() => _sendMessage(message));
     }
-    return completer.future;
   }
 
   /// BT-SEARCH * HTTP/1.1\r\n
@@ -119,15 +119,58 @@ class LSD with EventsEmittable<LSDEvent> {
   ///\r\n
   ///
   ///\r\n
-  String _createMessage() {
-    return '${ANNOUNCE_FIRST_LINE}Host: ${LSD_HOST_STRING}Port: $port\r\nInfohash: $_infoHashHex\r\ncookie: dt-client$_peerId\r\n\r\n\r\n';
+  String _createMessage(String infoHashHex, String peerId, int port) {
+    return '${ANNOUNCE_FIRST_LINE}Host: ${LSD_HOST_STRING}Port: $port\r\nInfohash: $infoHashHex\r\ncookie: dt-client$peerId\r\n\r\n\r\n';
   }
 
-  void close() {
-    if (isClosed) return;
-    events.dispose();
-    _closed = true;
-    _socket?.close();
-    _timer?.cancel();
+  void _startAnnouncing() {
+    _announceTimer?.cancel();
+    _announce();
+    _announceTimer =
+        Timer.periodic(Duration(seconds: 5 * 60), (_) => _announce());
   }
+
+  /// Register an info hash for LSD discovery
+  void registerInfoHash(String infoHashHex, String peerId, int port) {
+    if (_closed) {
+      throw StateError('LSDManager has been disposed');
+    }
+    if (!_registeredHashes.containsKey(infoHashHex)) {
+      _registeredHashes[infoHashHex] = _LSDInfo(infoHashHex, peerId, port);
+      _log.info('Registered LSD for info hash: $infoHashHex');
+
+      // If already started, start announcing for this hash
+      if (!_closed) {
+        _startAnnouncing();
+      }
+    }
+  }
+
+  /// Unregister an info hash
+  void unregisterInfoHash(String infoHashHex) {
+    if (_registeredHashes.remove(infoHashHex) != null) {
+      _log.info('Unregistered LSD for info hash: $infoHashHex');
+    }
+  }
+
+  /// Dispose the LSD manager
+  Future<void> dispose() async {
+    if (_closed) return;
+    _closed = true;
+    _announceTimer?.cancel();
+    _announceTimer = null;
+    _registeredHashes.clear();
+    _socket?.close();
+    _socket = null;
+    _started = false;
+    events.dispose();
+  }
+}
+
+class _LSDInfo {
+  final String infoHashHex;
+  final String peerId;
+  final int port;
+
+  _LSDInfo(this.infoHashHex, this.peerId, this.port);
 }

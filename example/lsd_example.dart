@@ -14,7 +14,7 @@ void main(List<String> args) async {
   var torrentFile = path.join(torrentsPath, 'big-buck-bunny.torrent');
   var model = await Torrent.parseFromFile(torrentFile);
   var infoHash = model.infoHash;
-  var lsd = LSD(infoHash, 'daa231dfa');
-  lsd.port = 61111;
+  var lsd = LSD();
+  lsd.registerInfoHash(infoHash, 'daa231dfa', 61111);
   lsd.start();
 }

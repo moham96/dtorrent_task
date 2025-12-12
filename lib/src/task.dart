@@ -37,11 +37,13 @@ var _log = Logger('TorrentTask');
 
 abstract class TorrentTask with EventsEmittable<TaskEvent> {
   factory TorrentTask.newTask(Torrent metaInfo, String savePath,
-      [bool stream = false]) {
+      [bool stream = false, LSD? lsd, DHT? dht]) {
     return _TorrentTask(
       metaInfo,
       savePath,
       stream: stream,
+      lsd: lsd,
+      dht: dht,
     );
   }
   void startAnnounceUrl(Uri url, Uint8List infoHash);
@@ -141,7 +143,7 @@ class _TorrentTask
     implements TorrentTask, AnnounceOptionsProvider {
   TorrentAnnounceTracker? _tracker;
 
-  DHT? _dht = DHT();
+  DHT? _dht;
 
   @override
   // The Dht instance
@@ -208,7 +210,10 @@ class _TorrentTask
   EventsListener<LSDEvent>? lsdListener;
   EventsListener<DHTEvent>? _dhtListener;
 
-  _TorrentTask(this._metaInfo, this._savePath, {this.stream = false}) {
+  _TorrentTask(this._metaInfo, this._savePath,
+      {this.stream = false, LSD? lsd, DHT? dht})
+      : _lsd = lsd,
+        _dht = dht {
     _peerId = generatePeerId();
   }
 
@@ -253,7 +258,6 @@ class _TorrentTask
   Timer? _dhtRepeatTimer;
 
   Future<PeersManager> _init(Torrent model, String savePath) async {
-    _lsd ??= LSD(model.infoHash, _peerId);
     _infoHashString ??= String.fromCharCodes(model.infoHashBuffer);
     _tracker ??= TorrentAnnounceTracker(this);
     _stateFile ??= await StateFile.getStateFile(savePath, model);
@@ -318,7 +322,7 @@ class _TorrentTask
       localFile = _fileManager?.files.firstWhere(
           (downloadedFile) => downloadedFile.originalFileName == file?.name);
     } catch (e) {
-      _log.warning('Local file not found for: ${file?.name}');
+      _log.warning('Local file not found for: ${file.name}');
       return null;
     }
 
@@ -371,6 +375,9 @@ class _TorrentTask
 
   void _processLSDPeerEvent(LSDNewPeer event) {
     _log.info('LSD peer found: ${event.address}');
+    if (event.infoHashHex == _infoHashString) {
+      _processNewPeerFound(event.address, PeerSource.lsd);
+    }
   }
 
   void _processNewPeerFound(CompactAddress url, PeerSource source) {
@@ -452,6 +459,9 @@ class _TorrentTask
     state = TaskState.running;
     // Incoming peer:
     _serverSocket ??= await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    if (_serverSocket == null) {
+      throw Exception("Failed to start listening for connections");
+    }
     await _init(_metaInfo, _savePath);
     _serverSocketListener = _serverSocket?.listen(_hookInPeer);
     // _utpServer ??= await ServerUTPSocket.bind(
@@ -499,14 +509,20 @@ class _TorrentTask
       ?..on<PieceAccepted>((event) => processPieceAccepted(event.pieceIndex))
       ..on<PieceRejected>((event) => null);
     lsdListener?.on<LSDNewPeer>(_processLSDPeerEvent);
-    _lsd?.port = _serverSocket?.port;
-    _lsd?.start();
+    if (_lsd != null) {
+      _lsd!.registerInfoHash(_metaInfo.infoHash, _peerId, _serverSocket!.port);
+      if (!_lsd!.isStarted && !_lsd!.isClosed) {
+        await _lsd?.start();
+      }
+    }
+    // Setup DHT
     _dhtListener = _dht?.createListener();
     _dhtListener?.on<NewPeerEvent>(
         (event) => _processDHTPeer(event.address, event.infoHash));
     _dht?.announce(
         String.fromCharCodes(_metaInfo.infoHashBuffer), _serverSocket!.port);
 
+    //TODO: only bootstrap if not already started
     _dht?.bootstrap();
 
     if (_fileManager != null && _fileManager!.isAllComplete) {
@@ -815,9 +831,8 @@ class _TorrentTask
     _serverSocket = null;
     await _fileManager?.close();
     _fileManager = null;
-    await _dht?.stop();
     _dht = null;
-    _lsd?.close();
+    _lsd?.unregisterInfoHash(_infoHashString!);
     _lsd = null;
     _peerIds.clear();
     _comingIp.clear();

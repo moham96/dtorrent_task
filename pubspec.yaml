@@ -10,7 +10,7 @@ environment:
 dependencies:
   dtorrent_parser: ^1.0.9
   dtorrent_tracker: ^1.3.20
-  bittorrent_dht: ^0.0.14
+  bittorrent_dht: ^0.0.15
   dtorrent_common: ^1.0.8
   b_encode_decode: ^1.0.5
   utp_protocol: ^1.0.5
