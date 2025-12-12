@@ -815,6 +815,7 @@ class _TorrentTask
     _dhtRepeatTimer?.cancel();
     _dhtRepeatTimer = null;
     trackerListener?.dispose();
+    pieceManagerListener?.dispose();
     fileManagerListener?.dispose();
     peersManagerListener?.dispose();
     lsdListener?.dispose();
