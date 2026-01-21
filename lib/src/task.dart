@@ -401,7 +401,7 @@ class _TorrentTask
       socket.close();
       return;
     }
-    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.remoteAddress)) {
       socket.close();
       return;
     }
@@ -420,7 +420,7 @@ class _TorrentTask
       socket.close();
       return;
     }
-    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.address)) {
+    if (_comingIp.length >= MAX_IN_PEERS || !_comingIp.add(socket.remoteAddress)) {
       socket.close();
       return;
     }
